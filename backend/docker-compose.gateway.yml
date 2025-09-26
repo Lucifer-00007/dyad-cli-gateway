@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: dyad-cli-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - GATEWAY_ENABLED=true
+      - GATEWAY_PORT=3001
+      - MONGODB_URL=mongodb://mongo:27017/dyad-gateway
+      - GATEWAY_SANDBOX_ENABLED=true
+      - GATEWAY_LOG_LEVEL=info
+    volumes:
+      # Mount Docker socket for sandbox execution (production should use alternatives)
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount logs directory
+      - ./logs:/app/logs
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - gateway-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongo:
+    image: mongo:6.0
+    container_name: dyad-gateway-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=dyad-gateway
+    volumes:
+      - mongo-data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - gateway-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: dyad-gateway-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - gateway-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  mongo-data:
+  redis-data:
+
+networks:
+  gateway-network:
+    driver: bridge
