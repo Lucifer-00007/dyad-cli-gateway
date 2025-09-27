@@ -181,6 +181,7 @@ class OpenAINormalizer {
       'Model not found': { type: 'invalid_request_error', code: 'model_not_found', status: 404 },
       'Model mapping not found': { type: 'invalid_request_error', code: 'model_not_found', status: 404 },
       'does not support embeddings': { type: 'invalid_request_error', code: 'model_not_supported', status: 400 },
+      'Embeddings not supported': { type: 'invalid_request_error', code: 'model_not_supported', status: 400 },
       
       // Rate limiting
       'Rate limit exceeded': { type: 'rate_limit_error', code: 'rate_limit_exceeded', status: 429 },
@@ -208,12 +209,16 @@ class OpenAINormalizer {
       }
     }
 
-    // Create OpenAI-compatible error
-    const openaiError = new Error(error.message);
-    openaiError.type = errorInfo.type;
-    openaiError.code = errorInfo.code;
-    openaiError.status = errorInfo.status;
-    openaiError.request_id = requestId;
+    // Create OpenAI-compatible ApiError
+    const ApiError = require('../../utils/ApiError');
+    const openaiError = new ApiError(
+      errorInfo.status,
+      error.message,
+      true,
+      error.stack,
+      errorInfo.type,
+      errorInfo.code
+    );
     
     // Add trace ID for debugging
     openaiError.trace_id = crypto.randomBytes(4).toString('hex');

@@ -4,6 +4,9 @@ const userRoute = require('./user.route');
 const docsRoute = require('./docs.route');
 const config = require('../../config/config');
 
+// Import gateway routes
+const { v1Routes: gatewayRoutes } = require('../../gateway/routes');
+
 const router = express.Router();
 
 const defaultRoutes = [
@@ -17,6 +20,14 @@ const defaultRoutes = [
   },
 ];
 
+// Gateway routes (OpenAI-compatible endpoints)
+const gatewayRoutesConfig = [
+  {
+    path: '/',
+    route: gatewayRoutes,
+  },
+];
+
 const devRoutes = [
   // routes available only in development mode
   {
@@ -26,6 +37,11 @@ const devRoutes = [
 ];
 
 defaultRoutes.forEach((route) => {
+  router.use(route.path, route.route);
+});
+
+// Mount gateway routes
+gatewayRoutesConfig.forEach((route) => {
   router.use(route.path, route.route);
 });
 
