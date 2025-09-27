@@ -25,7 +25,7 @@
   - **AC**: Echo adapter runs CLI in sandbox, returns stdout, supports timeout/cancel, logs sanitized command
   - _Requirements: 3.1, 3.2, 4.1, 4.6_
 
-- [ ] 4. Implement API key authentication middleware
+- [x] 4. Implement API key authentication middleware
   - Create API key authentication middleware for /v1 endpoints
   - Implement API key validation and basic rate limiting
   - Add request logging with authenticated user context
@@ -33,7 +33,7 @@
   - **AC**: Requires Authorization: Bearer, returns 401 for invalid key, logs requests
   - _Requirements: 5.1, 5.3, 5.5_
 
-- [ ] 5. Create gateway service and response normalizer
+- [x] 5. Create gateway service and response normalizer
   - Implement gateway service to coordinate request processing
   - Create OpenAI response normalizer to convert adapter outputs
   - Implement model-to-provider routing logic
