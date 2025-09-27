@@ -123,7 +123,7 @@
   - **AC**: Circuit opens on failures, fallback works, auto-recovery after cooldown
   - _Requirements: 2.5, 7.5_
 
-- [ ] 16. Integrate secrets manager and KMS
+- [x] 16. Integrate secrets manager and KMS
   - Replace ENV-based secrets with KMS/Vault integration
   - Implement proper encryption key storage and rotation
   - Add credential encryption with external key management

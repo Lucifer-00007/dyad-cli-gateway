@@ -80,6 +80,9 @@ router.post('/health-check', adminController.triggerHealthCheck);
 // Reliability statistics
 router.get('/reliability-stats', adminController.getReliabilityStatistics);
 
+// Secrets management routes
+router.use('/secrets', require('./secrets.route'));
+
 // Error handling middleware
 router.use(errorConverter);
 router.use(errorHandler);

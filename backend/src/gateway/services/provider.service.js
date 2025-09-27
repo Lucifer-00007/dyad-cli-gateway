@@ -7,6 +7,8 @@ const httpStatus = require('http-status');
 const Provider = require('../../models/provider.model');
 const ApiError = require('../../utils/ApiError');
 const { AdapterFactory } = require('../adapters');
+const credentialService = require('../../services/credential.service');
+const keyRotationService = require('../../services/key-rotation.service');
 const logger = require('../../config/logger');
 
 class ProviderService {
@@ -60,8 +62,37 @@ class ProviderService {
       // Validate adapter configuration
       await this.validateAdapterConfig(providerData.type, providerData.adapterConfig);
 
+      // Store credentials in external secrets manager if provided
+      let credentialsToStore = null;
+      if (providerData.credentials) {
+        credentialsToStore = providerData.credentials;
+        // Remove credentials from provider data as they'll be stored externally
+        delete providerData.credentials;
+      }
+
       // Create provider
       const provider = await Provider.create(providerData);
+
+      // Store credentials in secrets manager
+      if (credentialsToStore) {
+        try {
+          await credentialService.storeProviderCredentials(
+            provider._id.toString(),
+            credentialsToStore
+          );
+          
+          // Set a placeholder in the provider document to indicate credentials exist
+          provider.credentials = new Map(
+            Object.keys(credentialsToStore).map(key => [key, '[STORED_EXTERNALLY]'])
+          );
+          await provider.save();
+        } catch (credentialError) {
+          // If credential storage fails, delete the provider and throw error
+          await Provider.findByIdAndDelete(provider._id);
+          throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 
+            `Failed to store provider credentials: ${credentialError.message}`);
+        }
+      }
 
       // Perform initial health check
       try {
@@ -110,12 +141,35 @@ class ProviderService {
         await this.validateAdapterConfig(type, adapterConfig);
       }
 
+      // Handle credentials update
+      let credentialsUpdated = false;
+      if (updateData.credentials) {
+        try {
+          await credentialService.storeProviderCredentials(
+            providerId,
+            updateData.credentials
+          );
+          
+          // Set placeholder in provider document
+          provider.credentials = new Map(
+            Object.keys(updateData.credentials).map(key => [key, '[STORED_EXTERNALLY]'])
+          );
+          credentialsUpdated = true;
+          
+          // Remove credentials from update data
+          delete updateData.credentials;
+        } catch (credentialError) {
+          throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 
+            `Failed to update provider credentials: ${credentialError.message}`);
+        }
+      }
+
       // Update provider
       Object.assign(provider, updateData);
       await provider.save();
 
       // Perform health check if configuration changed
-      if (updateData.adapterConfig || updateData.credentials || updateData.enabled !== undefined) {
+      if (updateData.adapterConfig || credentialsUpdated || updateData.enabled !== undefined) {
         try {
           await this.checkProviderHealth(provider.id);
         } catch (healthError) {
@@ -146,6 +200,20 @@ class ProviderService {
       const provider = await Provider.findById(providerId);
       if (!provider) {
         throw new ApiError(httpStatus.NOT_FOUND, 'Provider not found');
+      }
+
+      // Delete credentials from secrets manager
+      if (provider.credentials && provider.credentials.size > 0) {
+        try {
+          const credentialKeys = Array.from(provider.credentials.keys());
+          await credentialService.deleteProviderCredentials(providerId, credentialKeys);
+        } catch (credentialError) {
+          logger.warn('Failed to delete provider credentials from secrets manager', {
+            providerId,
+            error: credentialError.message
+          });
+          // Continue with provider deletion even if credential cleanup fails
+        }
       }
 
       await Provider.findByIdAndDelete(providerId);
@@ -204,7 +272,13 @@ class ProviderService {
           };
         } else {
           // Real test: create adapter and perform test request
-          const adapter = this.adapterFactory.createAdapter(provider, provider.credentials);
+          // Get credentials from secrets manager
+          const credentialKeys = provider.credentials ? Array.from(provider.credentials.keys()) : [];
+          const actualCredentials = credentialKeys.length > 0 
+            ? await credentialService.getProviderCredentials(providerId, credentialKeys)
+            : new Map();
+          
+          const adapter = this.adapterFactory.createAdapter(provider, actualCredentials);
           
           // Perform test based on adapter capabilities
           if (provider.models.length > 0) {
@@ -374,23 +448,16 @@ class ProviderService {
         throw new ApiError(httpStatus.NOT_FOUND, 'Provider not found');
       }
 
-      // Store old credentials for rollback if needed
-      const oldCredentials = provider.credentials;
       const startTime = Date.now();
 
       try {
-        // Update credentials
-        provider.credentials = new Map(Object.entries(newCredentials));
-        await provider.save();
+        // Use the key rotation service for secure credential rotation
+        await keyRotationService.rotateProviderCredentials(providerId, newCredentials);
 
         // Test connectivity with new credentials
         const testResult = await this.testProvider(providerId, { dryRun: false });
         
         if (testResult.status === 'failed') {
-          // Rollback on test failure
-          provider.credentials = oldCredentials;
-          await provider.save();
-          
           throw new ApiError(httpStatus.BAD_REQUEST, `Credential rotation failed: ${testResult.message}`);
         }
 
@@ -418,15 +485,13 @@ class ProviderService {
         };
 
       } catch (rotationError) {
-        // Rollback credentials on any error
+        // Update health status on failure
         try {
-          provider.credentials = oldCredentials;
-          await provider.save();
           await provider.updateHealthStatus('unhealthy', 'Credential rotation failed');
-        } catch (rollbackError) {
-          logger.error('Failed to rollback credentials after rotation failure', {
+        } catch (healthError) {
+          logger.error('Failed to update health status after rotation failure', {
             providerId,
-            rollbackError: rollbackError.message
+            healthError: healthError.message
           });
         }
 
