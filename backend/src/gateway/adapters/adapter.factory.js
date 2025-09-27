@@ -4,15 +4,16 @@
  */
 
 const SpawnCliAdapter = require('./spawn-cli.adapter');
+const HttpSdkAdapter = require('./http-sdk.adapter');
 const logger = require('../../config/logger');
 
 class AdapterFactory {
   constructor() {
     // Registry of available adapter types
     this.adapterTypes = {
-      'spawn-cli': SpawnCliAdapter
+      'spawn-cli': SpawnCliAdapter,
+      'http-sdk': HttpSdkAdapter
       // Future adapters will be added here:
-      // 'http-sdk': HttpSdkAdapter,
       // 'proxy': ProxyAdapter,
       // 'local': LocalAdapter
     };
