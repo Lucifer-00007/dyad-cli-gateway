@@ -18,9 +18,37 @@ const errorConverter = (err, req, res, next) => {
     const statusCode = error.statusCode || httpStatus.INTERNAL_SERVER_ERROR;
     const message = error.message || httpStatus[statusCode];
     
-    // Default error type and code for non-ApiError instances
-    const type = 'internal_error';
-    const code = 'internal_server_error';
+    // Map status codes to OpenAI error types and codes
+    let type, code;
+    switch (statusCode) {
+      case httpStatus.NOT_FOUND:
+        type = 'invalid_request_error';
+        code = 'not_found';
+        break;
+      case httpStatus.BAD_REQUEST:
+        type = 'invalid_request_error';
+        code = 'invalid_request';
+        break;
+      case httpStatus.UNAUTHORIZED:
+        type = 'authentication_error';
+        code = 'invalid_api_key';
+        break;
+      case httpStatus.FORBIDDEN:
+        type = 'permission_error';
+        code = 'forbidden';
+        break;
+      case httpStatus.TOO_MANY_REQUESTS:
+        type = 'rate_limit_error';
+        code = 'rate_limit_exceeded';
+        break;
+      case httpStatus.GATEWAY_TIMEOUT:
+        type = 'internal_error';
+        code = 'adapter_timeout';
+        break;
+      default:
+        type = 'internal_error';
+        code = 'internal_server_error';
+    }
     
     error = new ApiError(statusCode, message, false, err.stack, type, code);
   }
@@ -43,7 +71,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Generate request ID if not available
-  const requestId = req.requestId || crypto.randomBytes(8).toString('hex');
+  const requestId = req.requestId || `req_${crypto.randomBytes(8).toString('hex')}`;
 
   // OpenAI-compatible error response format
   const response = {
