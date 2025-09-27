@@ -164,6 +164,23 @@ paths:
                   prompt_tokens: 25
                   completion_tokens: 20
                   total_tokens: 45
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream when `stream: true` is specified.
+                  Each event contains a JSON chunk in the format described by ChatCompletionChunk.
+                  The stream ends with a `data: [DONE]` message.
+              example: |
+                data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1690000000,"model":"gpt-4","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+                
+                data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1690000000,"model":"gpt-4","choices":[{"index":0,"delta":{"content":"Code"},"finish_reason":null}]}
+                
+                data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1690000000,"model":"gpt-4","choices":[{"index":0,"delta":{"content":" flows"},"finish_reason":null}]}
+                
+                data: {"id":"chatcmpl-abc123","object":"chat.completion.chunk","created":1690000000,"model":"gpt-4","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+                
+                data: [DONE]
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
@@ -706,7 +723,7 @@ components:
         stream:
           type: boolean
           default: false
-          description: Whether to stream back partial progress (not yet supported)
+          description: Whether to stream back partial progress using Server-Sent Events
         stop:
           oneOf:
             - type: string
@@ -801,6 +818,67 @@ components:
         - index
         - message
         - finish_reason
+
+    ChatCompletionChunk:
+      type: object
+      description: Represents a streamed chunk of a chat completion response
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the completion
+        object:
+          type: string
+          enum: ["chat.completion.chunk"]
+        created:
+          type: integer
+          description: Unix timestamp of creation
+        model:
+          type: string
+          description: Model used for the completion
+        choices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatCompletionChunkChoice'
+          description: List of completion choices
+        usage:
+          $ref: '#/components/schemas/Usage'
+          description: Token usage (only present in final chunk)
+      required:
+        - id
+        - object
+        - created
+        - model
+        - choices
+
+    ChatCompletionChunkChoice:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Index of the choice
+        delta:
+          $ref: '#/components/schemas/ChatCompletionDelta'
+        finish_reason:
+          type: string
+          enum: ["stop", "length", "content_filter", "null"]
+          nullable: true
+          description: Reason the completion finished (null until final chunk)
+      required:
+        - index
+        - delta
+
+    ChatCompletionDelta:
+      type: object
+      description: Delta object containing partial message content
+      properties:
+        role:
+          type: string
+          enum: ["assistant"]
+          description: Role of the message author (only in first chunk)
+        content:
+          type: string
+          description: Partial message content
+      additionalProperties: false
 
     EmbeddingsRequest:
       type: object
