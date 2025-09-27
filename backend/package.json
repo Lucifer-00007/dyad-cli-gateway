@@ -40,6 +40,10 @@
     "gateway:docker": "docker-compose -f docker-compose.gateway.yml up",
     "gateway:docker:build": "docker-compose -f docker-compose.gateway.yml up --build",
     "gateway:docker:down": "docker-compose -f docker-compose.gateway.yml down",
+    "security:audit": "node scripts/security-audit.js",
+    "security:scan": "npm audit && node scripts/security-audit.js",
+    "security:fix": "npm audit fix",
+    "security:check": "npm audit --audit-level moderate",
     "prepare": "husky install"
   },
   "keywords": [
@@ -79,6 +83,7 @@
     "express": "^4.17.1",
     "express-mongo-sanitize": "^2.0.0",
     "express-rate-limit": "^5.0.0",
+    "express-slow-down": "^1.6.0",
     "helmet": "^4.1.0",
     "http-status": "^1.4.0",
     "joi": "^17.3.0",

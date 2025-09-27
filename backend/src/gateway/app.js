@@ -14,9 +14,20 @@ const httpStatus = require('http-status');
 const crypto = require('crypto');
 
 const gatewayConfig = require('./config/gateway.config');
+const securityConfig = require('./config/security.config');
 const { v1Routes, adminRoutes, metricsRoutes } = require('./routes');
 const { errorConverter, errorHandler } = require('./middlewares');
 const { correlationId, requestTracking, errorTracking } = require('./middlewares/monitoring.middleware');
+const { 
+  inputSanitization,
+  advancedRateLimit,
+  progressiveSlowdown,
+  ddosProtection,
+  securityHeaders,
+  httpsEnforcement,
+  requestSizeValidation,
+  userAgentValidation
+} = require('./middlewares/security');
 const { jwtStrategy } = require('../config/passport');
 const ApiError = require('../utils/ApiError');
 
@@ -39,8 +50,15 @@ app.use(requestTracking);
 app.use(passport.initialize());
 passport.use('jwt', jwtStrategy);
 
-// Security middleware
-app.use(helmet());
+// Enhanced security middleware stack
+app.use(httpsEnforcement);
+app.use(securityHeaders);
+app.use(userAgentValidation);
+app.use(requestSizeValidation);
+app.use(ddosProtection);
+app.use(progressiveSlowdown);
+app.use(advancedRateLimit);
+app.use(inputSanitization);
 
 // CORS configuration
 app.use(cors({
@@ -48,13 +66,26 @@ app.use(cors({
   credentials: true,
 }));
 
-// Parse JSON bodies
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Parse JSON bodies with security limits
+app.use(express.json({ 
+  limit: securityConfig.validation.maxRequestSize,
+  strict: true,
+  type: ['application/json', 'application/*+json']
+}));
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: securityConfig.validation.maxRequestSize,
+  parameterLimit: 100
+}));
 
-// Sanitize request data
+// Enhanced sanitization
 app.use(xss());
-app.use(mongoSanitize());
+app.use(mongoSanitize({
+  replaceWith: '_',
+  onSanitize: ({ req, key }) => {
+    console.warn(`Sanitized key: ${key} in request ${req.requestId}`);
+  }
+}));
 
 // Gzip compression
 app.use(compression());

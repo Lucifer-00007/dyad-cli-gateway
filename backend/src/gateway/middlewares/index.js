@@ -7,6 +7,16 @@ const apiKeyAuth = require('./apiKeyAuth');
 const requestLogger = require('./requestLogger');
 const { gatewayRateLimit, apiKeyRateLimit } = require('./gatewayRateLimit');
 const { errorConverter, errorHandler } = require('./errorHandler');
+const {
+  inputSanitization,
+  advancedRateLimit,
+  progressiveSlowdown,
+  ddosProtection,
+  securityHeaders,
+  httpsEnforcement,
+  requestSizeValidation,
+  userAgentValidation
+} = require('./security');
 
 module.exports = {
   apiKeyAuth,
@@ -15,4 +25,12 @@ module.exports = {
   apiKeyRateLimit,
   errorConverter,
   errorHandler,
+  inputSanitization,
+  advancedRateLimit,
+  progressiveSlowdown,
+  ddosProtection,
+  securityHeaders,
+  httpsEnforcement,
+  requestSizeValidation,
+  userAgentValidation,
 };

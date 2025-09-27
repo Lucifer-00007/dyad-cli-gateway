@@ -1,39 +1,71 @@
-# Dockerfile for Dyad CLI Gateway
+# Dockerfile for Dyad CLI Gateway - Security Hardened
 FROM node:18-alpine
+
+# Security: Update packages and install security tools
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    docker-cli \
+    curl \
+    bash \
+    dumb-init \
+    && rm -rf /var/cache/apk/*
+
+# Security: Create non-root user first
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S gateway -u 1001 -G nodejs -h /app -s /bin/sh
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for Docker-in-Docker (if needed)
-RUN apk add --no-cache \
-    docker-cli \
-    curl \
-    bash
+# Security: Copy package files with proper ownership
+COPY --chown=gateway:nodejs package*.json ./
+COPY --chown=gateway:nodejs yarn.lock ./
 
-# Copy package files
-COPY package*.json ./
-COPY yarn.lock ./
-
-# Install dependencies
-RUN yarn install --frozen-lockfile --production
-
-# Copy source code
-COPY . .
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S gateway -u 1001
-
-# Change ownership of app directory
-RUN chown -R gateway:nodejs /app
+# Security: Switch to non-root user for dependency installation
 USER gateway
 
-# Expose gateway port
+# Install dependencies with security flags
+RUN yarn install --frozen-lockfile --production --ignore-scripts && \
+    yarn cache clean
+
+# Security: Copy source code with proper ownership
+COPY --chown=gateway:nodejs . .
+
+# Security: Remove unnecessary files and set proper permissions
+USER root
+RUN find /app -type f -name "*.md" -delete && \
+    find /app -type f -name "*.test.js" -delete && \
+    find /app -type d -name "__tests__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    chmod -R 755 /app && \
+    chmod -R 644 /app/src && \
+    chmod 755 /app/src/gateway/utils/docker-sandbox.js 2>/dev/null || true
+
+# Security: Switch back to non-root user
+USER gateway
+
+# Security: Set environment variables
+ENV NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=512" \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
+
+# Security: Expose only necessary port
 EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3001/healthz || exit 1
+# Security: Add labels for container scanning
+LABEL maintainer="dyad-team" \
+      version="1.0.0" \
+      description="Dyad CLI Gateway - Security Hardened" \
+      security.scan="enabled"
 
-# Start the gateway service
-CMD ["node", "src/index.js"]
+# Security: Enhanced health check with timeout
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD curl -f --max-time 5 http://localhost:3001/healthz || exit 1
+
+# Security: Use dumb-init to handle signals properly and prevent zombie processes
+ENTRYPOINT ["dumb-init", "--"]
+
+# Security: Run with minimal privileges
+CMD ["node", "--max-old-space-size=512", "src/index.js"]
