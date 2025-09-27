@@ -49,7 +49,7 @@
   - **AC**: POST /v1/chat returns OpenAI JSON shape (id, choices, usage), GET /v1/models returns model list
   - _Requirements: 1.1, 1.2_
 
-- [ ] 7. Create gateway Express application
+- [x] 7. Create gateway Express application
   - Set up Express app with middleware stack
   - Mount OpenAI routes and basic error handling
   - Add request logging and health check endpoint
@@ -57,7 +57,7 @@
   - **AC**: App starts successfully, handles requests, returns proper errors, /health responds
   - _Requirements: 1.5, 7.1, 7.2_
 
-- [ ] 8. Implement admin API for provider management
+- [x] 8. Implement admin API for provider management
   - Create admin routes for provider CRUD operations
   - Implement provider testing endpoint for connectivity validation
   - Add JWT authentication and admin role authorization
