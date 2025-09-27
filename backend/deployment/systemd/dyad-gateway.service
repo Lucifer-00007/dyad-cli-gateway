@@ -1,0 +1,54 @@
+# Systemd service file for Dyad CLI Gateway
+# Copy this file to /etc/systemd/system/ and customize paths and user
+
+[Unit]
+Description=Dyad CLI Gateway
+Documentation=https://github.com/dyad/cli-gateway
+After=network.target mongod.service redis.service
+Wants=mongod.service redis.service
+
+[Service]
+Type=forking
+User=dyad-gateway
+Group=dyad-gateway
+WorkingDirectory=/opt/dyad-gateway/backend
+ExecStart=/opt/dyad-gateway/backend/scripts/start-production.sh
+ExecStop=/opt/dyad-gateway/backend/scripts/stop-production.sh shutdown
+ExecReload=/opt/dyad-gateway/backend/scripts/stop-production.sh restart
+PIDFile=/opt/dyad-gateway/backend/gateway.pid
+
+# Environment
+Environment=NODE_ENV=production
+Environment=GATEWAY_PORT=3001
+Environment=GATEWAY_ENABLED=true
+EnvironmentFile=-/etc/dyad-gateway/environment
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dyad-gateway/backend/logs
+ReadWritePaths=/opt/dyad-gateway/backend/tmp
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dyad-gateway
+
+# Timeout settings
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

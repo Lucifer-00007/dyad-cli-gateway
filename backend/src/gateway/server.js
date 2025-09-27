@@ -1,6 +1,6 @@
 /**
  * Dyad CLI Gateway - Server Entry Point
- * Starts the gateway Express server
+ * Starts the gateway Express server with enhanced production features
  */
 
 const mongoose = require('mongoose');
@@ -27,22 +27,63 @@ const startServer = () => {
   });
 };
 
-// Graceful shutdown
+// Graceful shutdown with enhanced cleanup
 const gracefulShutdown = (signal) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
   
+  // Set a timeout for forced shutdown
+  const forceShutdownTimeout = setTimeout(() => {
+    logger.error('Forced shutdown due to timeout');
+    process.exit(1);
+  }, 30000); // 30 seconds timeout
+  
   if (server) {
-    server.close(() => {
+    // Stop accepting new connections
+    server.close(async () => {
       logger.info('HTTP server closed');
       
-      // Close database connection
-      mongoose.connection.close(false, () => {
+      try {
+        // Clean up any running sandbox jobs (Kubernetes)
+        if (process.env.GATEWAY_SANDBOX_TYPE === 'kubernetes') {
+          await cleanupSandboxJobs();
+        }
+        
+        // Close database connection
+        await mongoose.connection.close(false);
         logger.info('MongoDB connection closed');
+        
+        // Clear the force shutdown timeout
+        clearTimeout(forceShutdownTimeout);
+        
+        logger.info('Graceful shutdown completed');
         process.exit(0);
-      });
+      } catch (error) {
+        logger.error('Error during graceful shutdown:', error);
+        clearTimeout(forceShutdownTimeout);
+        process.exit(1);
+      }
     });
   } else {
+    clearTimeout(forceShutdownTimeout);
     process.exit(0);
+  }
+};
+
+// Cleanup sandbox jobs on shutdown
+const cleanupSandboxJobs = async () => {
+  try {
+    const KubernetesSandbox = require('./utils/k8s-sandbox');
+    const k8sSandbox = new KubernetesSandbox();
+    
+    // This would ideally track active jobs and clean them up
+    // For now, we'll just log the cleanup attempt
+    logger.info('Cleaning up sandbox jobs...');
+    
+    // In a real implementation, you'd maintain a registry of active jobs
+    // and clean them up here
+    
+  } catch (error) {
+    logger.warn('Failed to cleanup sandbox jobs:', error.message);
   }
 };
 

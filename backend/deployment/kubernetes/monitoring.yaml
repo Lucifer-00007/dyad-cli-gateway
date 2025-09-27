@@ -1,0 +1,130 @@
+# Monitoring resources for production deployment
+
+---
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: dyad-gateway
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dyad-gateway
+      app.kubernetes.io/component: gateway
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dyad-gateway-alerts
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: monitoring
+spec:
+  groups:
+  - name: dyad-gateway.rules
+    rules:
+    - alert: DyadGatewayDown
+      expr: up{job="dyad-gateway"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Dyad Gateway is down"
+        description: "Dyad Gateway has been down for more than 1 minute."
+    
+    - alert: DyadGatewayHighErrorRate
+      expr: rate(http_requests_total{job="dyad-gateway",status=~"5.."}[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High error rate in Dyad Gateway"
+        description: "Error rate is {{ $value }} errors per second."
+    
+    - alert: DyadGatewayHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="dyad-gateway"}[5m])) > 2
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High latency in Dyad Gateway"
+        description: "95th percentile latency is {{ $value }} seconds."
+    
+    - alert: DyadGatewaySandboxJobsFailing
+      expr: rate(k8s_sandbox_jobs_failed_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High sandbox job failure rate"
+        description: "Sandbox job failure rate is {{ $value }} failures per second."
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-dyad-gateway
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  dyad-gateway.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Dyad CLI Gateway",
+        "tags": ["dyad", "gateway"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{job=\"dyad-gateway\"}[5m])",
+                "legendFormat": "{{method}} {{status}}"
+              }
+            ]
+          },
+          {
+            "title": "Response Time",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"dyad-gateway\"}[5m]))",
+                "legendFormat": "95th percentile"
+              }
+            ]
+          },
+          {
+            "title": "Sandbox Jobs",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(k8s_sandbox_jobs_total[5m])",
+                "legendFormat": "Jobs created"
+              },
+              {
+                "expr": "rate(k8s_sandbox_jobs_failed_total[5m])",
+                "legendFormat": "Jobs failed"
+              }
+            ]
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }

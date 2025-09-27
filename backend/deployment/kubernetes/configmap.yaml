@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dyad-gateway-config
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: config
+data:
+  NODE_ENV: "production"
+  GATEWAY_ENABLED: "true"
+  GATEWAY_PORT: "3001"
+  GATEWAY_SANDBOX_TYPE: "kubernetes"
+  GATEWAY_SANDBOX_ENABLED: "true"
+  GATEWAY_LOG_LEVEL: "info"
+  GATEWAY_API_PREFIX: "/v1"
+  GATEWAY_ADMIN_PREFIX: "/admin"
+  GATEWAY_METRICS_ENABLED: "true"
+  GATEWAY_HEALTH_CHECK_ENABLED: "true"
+  GATEWAY_RATE_LIMIT_ENABLED: "true"
+  GATEWAY_CIRCUIT_BREAKER_ENABLED: "true"
+  # Kubernetes-specific sandbox configuration
+  K8S_SANDBOX_NAMESPACE: "dyad-gateway-sandbox"
+  K8S_SANDBOX_IMAGE: "alpine:3.18"
+  K8S_SANDBOX_CPU_LIMIT: "500m"
+  K8S_SANDBOX_MEMORY_LIMIT: "512Mi"
+  K8S_SANDBOX_TIMEOUT: "300"
+  K8S_SANDBOX_TTL_SECONDS: "600"
+  # gVisor configuration (when available)
+  GVISOR_RUNTIME_CLASS: "gvisor"
+  GVISOR_ENABLED: "false"

@@ -1,0 +1,56 @@
+# gVisor RuntimeClass for enhanced container security
+# This provides an additional layer of isolation using gVisor's user-space kernel
+# Note: gVisor must be installed on the cluster nodes first
+
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: security
+handler: runsc
+overhead:
+  # gVisor has some overhead compared to runc
+  podFixed:
+    memory: "20Mi"
+    cpu: "10m"
+scheduling:
+  # Optional: Use node selectors to ensure gVisor is available
+  nodeClassificationPolicy: "Restricted"
+  tolerations:
+  - key: "gvisor"
+    operator: "Equal"
+    value: "enabled"
+    effect: "NoSchedule"
+
+---
+# NetworkPolicy to restrict sandbox pod network access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sandbox-network-policy
+  namespace: dyad-gateway-sandbox
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      dyad.gateway/job-type: cli-execution
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress: []  # No ingress traffic allowed
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow outbound HTTPS for package downloads (if needed)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Block all other egress traffic

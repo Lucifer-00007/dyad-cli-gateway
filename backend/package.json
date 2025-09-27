@@ -74,6 +74,7 @@
     "@azure/identity": "^4.0.0",
     "@azure/keyvault-keys": "^4.0.0",
     "@azure/keyvault-secrets": "^4.0.0",
+    "@kubernetes/client-node": "^0.20.0",
     "axios": "^1.0.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",

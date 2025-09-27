@@ -1,0 +1,171 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dyad-gateway
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dyad-gateway
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dyad-gateway
+        app.kubernetes.io/component: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3001"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: dyad-gateway
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+      - name: gateway
+        image: dyad/cli-gateway:latest
+        ports:
+        - containerPort: 3001
+          name: http
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: dyad-gateway-config
+              key: NODE_ENV
+        - name: GATEWAY_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: dyad-gateway-config
+              key: GATEWAY_PORT
+        - name: GATEWAY_SANDBOX_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: dyad-gateway-config
+              key: GATEWAY_SANDBOX_TYPE
+        - name: K8S_SANDBOX_NAMESPACE
+          valueFrom:
+            configMapKeyRef:
+              name: dyad-gateway-config
+              key: K8S_SANDBOX_NAMESPACE
+        - name: MONGODB_URL
+          valueFrom:
+            secretKeyRef:
+              name: dyad-gateway-secrets
+              key: MONGODB_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: dyad-gateway-secrets
+              key: REDIS_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: dyad-gateway-secrets
+              key: JWT_SECRET
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: dyad-gateway-secrets
+              key: ENCRYPTION_KEY
+        envFrom:
+        - configMapRef:
+            name: dyad-gateway-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dyad-gateway
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  selector:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: gateway
+  ports:
+  - port: 80
+    targetPort: 3001
+    name: http
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dyad-gateway
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: gateway
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - gateway.yourdomain.com
+    secretName: dyad-gateway-tls
+  rules:
+  - host: gateway.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dyad-gateway
+            port:
+              number: 80

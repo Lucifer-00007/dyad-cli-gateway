@@ -1,0 +1,148 @@
+# Pod Security Standards and Network Policies for Production
+
+---
+# Pod Security Policy (if PSP is enabled) or Pod Security Standards
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dyad-gateway
+  labels:
+    name: dyad-gateway
+    # Pod Security Standards labels
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+---
+# Network Policy for Gateway pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dyad-gateway-network-policy
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dyad-gateway
+      app.kubernetes.io/component: gateway
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3001
+  # Allow ingress from monitoring (Prometheus)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3001
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow connection to MongoDB
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: database
+    ports:
+    - protocol: TCP
+      port: 27017
+  # Allow connection to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: cache
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow Kubernetes API access for sandbox management
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow outbound HTTPS for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+
+---
+# Network Policy for Database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mongodb-network-policy
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: database
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow connections from gateway pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: gateway
+    ports:
+    - protocol: TCP
+      port: 27017
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# Network Policy for Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-network-policy
+  namespace: dyad-gateway
+  labels:
+    app.kubernetes.io/name: dyad-gateway
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: cache
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow connections from gateway pods
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/component: gateway
+    ports:
+    - protocol: TCP
+      port: 6379
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
