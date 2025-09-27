@@ -1,10 +1,10 @@
 /**
  * Gateway Routes Index
  * Exports all gateway route modules
- * 
- * Routes will be implemented in future tasks
  */
 
+const v1Routes = require('./v1');
+
 module.exports = {
-  // Placeholder for future route exports
+  v1Routes,
 };
