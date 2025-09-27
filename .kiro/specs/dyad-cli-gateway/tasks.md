@@ -91,7 +91,7 @@
   - **AC**: Successfully calls vendor APIs, handles retries, transforms responses correctly
   - _Requirements: 3.3, 3.6_
 
-- [ ] 12. Implement proxy and local adapters
+- [x] 12. Implement proxy and local adapters
   - Create proxy adapter for forwarding to OpenAI-compatible services
   - Create local adapter for Ollama/TGI local model servers
   - Implement health checking for local services
@@ -99,7 +99,7 @@
   - **AC**: Proxy forwards requests correctly, local adapter connects to Ollama, health checks work
   - _Requirements: 3.4, 3.5_
 
-- [ ] 13. Add SSE streaming and cancellation support
+- [x] 13. Add SSE streaming and cancellation support
   - Implement Server-Sent Events streaming for chat completions
   - Add cancellation handling (connection close → kill sandbox)
   - Include tests for partial-token streaming and client cancellation
