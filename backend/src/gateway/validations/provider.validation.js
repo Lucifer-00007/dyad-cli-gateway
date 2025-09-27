@@ -24,7 +24,19 @@ const adapterConfigSchema = Joi.object({
   
   // HTTP-SDK specific
   baseUrl: Joi.string().uri(),
+  chatEndpoint: Joi.string().trim().default('/v1/chat/completions'),
+  embeddingsEndpoint: Joi.string().trim(),
+  timeoutMs: Joi.number().integer().min(1000).max(300000).default(30000),
+  retryBaseDelay: Joi.number().integer().min(100).max(10000).default(1000),
+  retryMaxDelay: Joi.number().integer().min(1000).max(60000).default(10000),
+  retryableStatusCodes: Joi.array().items(Joi.number().integer().min(400).max(599)),
+  apiKeyHeader: Joi.string().trim().default('X-API-Key'),
+  supportsStreaming: Joi.boolean().default(false),
   headers: Joi.object().pattern(Joi.string(), Joi.string()),
+  requestTransform: Joi.function(),
+  responseTransform: Joi.function(),
+  embeddingsRequestTransform: Joi.function(),
+  embeddingsResponseTransform: Joi.function(),
   
   // Proxy specific
   proxyUrl: Joi.string().uri(),
