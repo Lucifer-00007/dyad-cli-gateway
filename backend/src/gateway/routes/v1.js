@@ -10,7 +10,6 @@ router.use(requestLogger);
 if (process.env.NODE_ENV !== 'test') {
   router.use(gatewayRateLimit);
 }
-router.use(apiKeyAuth(['chat', 'models'])); // Require chat and models permissions
 router.use(apiKeyRateLimit);
 
 // Add request start time for duration tracking
@@ -19,10 +18,10 @@ router.use((req, res, next) => {
   next();
 });
 
-// OpenAI-compatible endpoints
-router.get('/models', v1Controller.getModels);
-router.post('/chat/completions', v1Controller.chatCompletions);
-router.post('/embeddings', v1Controller.embeddings);
+// OpenAI-compatible endpoints with specific permission requirements
+router.get('/models', apiKeyAuth(['models']), v1Controller.getModels);
+router.post('/chat/completions', apiKeyAuth(['chat']), v1Controller.chatCompletions);
+router.post('/embeddings', apiKeyAuth(['embeddings']), v1Controller.embeddings);
 
 // Error handling middleware (OpenAI-compatible format)
 router.use(errorConverter);

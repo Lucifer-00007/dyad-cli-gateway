@@ -216,6 +216,52 @@ describe('GatewayService', () => {
       expect(result.object).toBe('list');
     });
 
+    it('should handle array input for embeddings', async () => {
+      // Setup provider with embeddings support
+      const embeddingsProvider = {
+        ...mockProvider,
+        getModelMapping: jest.fn().mockReturnValue({
+          dyadModelId: 'embedding-model',
+          adapterModelId: 'adapter-embedding',
+          supportsEmbeddings: true
+        })
+      };
+
+      Provider.getProvidersByModel.mockResolvedValue([embeddingsProvider]);
+      mockAdapter.handleEmbeddings.mockResolvedValue([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]);
+      mockNormalizer.normalizeEmbeddingsResponse.mockReturnValue({
+        object: 'list',
+        data: [
+          { embedding: [0.1, 0.2, 0.3], index: 0 },
+          { embedding: [0.4, 0.5, 0.6], index: 1 }
+        ]
+      });
+
+      const result = await gatewayService.handleEmbeddings({
+        model: 'embedding-model',
+        input: ['test text 1', 'test text 2'],
+        requestMeta: { requestId: 'test-request' }
+      });
+
+      expect(mockAdapter.handleEmbeddings).toHaveBeenCalledWith({
+        input: ['test text 1', 'test text 2'],
+        options: {
+          model: 'adapter-embedding'
+        }
+      });
+      expect(result.data).toHaveLength(2);
+    });
+
+    it('should throw error when no provider found for model', async () => {
+      Provider.getProvidersByModel.mockResolvedValue([]);
+      mockNormalizer.normalizeError.mockImplementation((error) => error);
+
+      await expect(gatewayService.handleEmbeddings({
+        model: 'non-existent-model',
+        input: 'test text'
+      })).rejects.toThrow('No provider found for model');
+    });
+
     it('should throw error when model does not support embeddings', async () => {
       Provider.getProvidersByModel.mockResolvedValue([mockProvider]);
       mockNormalizer.normalizeError.mockImplementation((error) => error);
@@ -224,6 +270,44 @@ describe('GatewayService', () => {
         model: 'test-model',
         input: 'test text'
       })).rejects.toThrow('does not support embeddings');
+    });
+
+    it('should pass options to adapter', async () => {
+      // Setup provider with embeddings support
+      const embeddingsProvider = {
+        ...mockProvider,
+        getModelMapping: jest.fn().mockReturnValue({
+          dyadModelId: 'embedding-model',
+          adapterModelId: 'adapter-embedding',
+          supportsEmbeddings: true
+        })
+      };
+
+      Provider.getProvidersByModel.mockResolvedValue([embeddingsProvider]);
+      mockAdapter.handleEmbeddings.mockResolvedValue([[0.1, 0.2, 0.3]]);
+      mockNormalizer.normalizeEmbeddingsResponse.mockReturnValue({
+        object: 'list',
+        data: [{ embedding: [0.1, 0.2, 0.3] }]
+      });
+
+      await gatewayService.handleEmbeddings({
+        model: 'embedding-model',
+        input: 'test text',
+        options: {
+          encoding_format: 'float',
+          dimensions: 512
+        },
+        requestMeta: { requestId: 'test-request' }
+      });
+
+      expect(mockAdapter.handleEmbeddings).toHaveBeenCalledWith({
+        input: 'test text',
+        options: {
+          encoding_format: 'float',
+          dimensions: 512,
+          model: 'adapter-embedding'
+        }
+      });
     });
   });
 

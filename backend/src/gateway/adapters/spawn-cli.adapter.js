@@ -166,10 +166,67 @@ class SpawnCliAdapter extends BaseAdapter {
   }
 
   /**
-   * Handle embeddings request (not supported by default CLI adapter)
+   * Handle embeddings request
    */
   async handleEmbeddings({ input, options }) {
-    throw new Error('Embeddings not supported by SpawnCliAdapter');
+    const requestId = crypto.randomBytes(8).toString('hex');
+    
+    logger.info('SpawnCliAdapter handling embeddings request', {
+      requestId,
+      inputType: Array.isArray(input) ? 'array' : 'string',
+      inputLength: Array.isArray(input) ? input.length : input.length,
+      command: this.providerConfig.command
+    });
+
+    try {
+      // Check if embeddings are supported by this provider configuration
+      if (!this.providerConfig.supportsEmbeddings) {
+        throw new Error('Embeddings not supported by this CLI adapter configuration');
+      }
+
+      // Prepare input for CLI command
+      const embeddingsInput = this.prepareEmbeddingsInput(input, options);
+      
+      let result;
+      
+      if (this.useDocker) {
+        // Execute command in Docker sandbox
+        result = await this.sandbox.execute(
+          this.providerConfig.command,
+          [...(this.providerConfig.args || []), '--embeddings'],
+          {
+            input: embeddingsInput,
+            timeout: (this.providerConfig.timeoutSeconds || 60) * 1000,
+            image: this.providerConfig.sandboxImage
+          }
+        );
+      } else {
+        // Execute command directly (for testing or when Docker is not available)
+        result = await this.executeDirectly(
+          this.providerConfig.command,
+          [...(this.providerConfig.args || []), '--embeddings'],
+          {
+            input: embeddingsInput,
+            timeout: (this.providerConfig.timeoutSeconds || 60) * 1000
+          }
+        );
+      }
+
+      if (!result.success) {
+        throw new Error(`CLI embeddings command failed with exit code ${result.exitCode}: ${result.stderr}`);
+      }
+
+      // Parse and normalize the output
+      return this.parseEmbeddingsOutput(result.stdout, requestId);
+      
+    } catch (error) {
+      logger.error('SpawnCliAdapter embeddings request failed', {
+        requestId,
+        error: error.message,
+        command: this.providerConfig.command
+      });
+      throw error;
+    }
   }
 
   /**
@@ -655,6 +712,88 @@ class SpawnCliAdapter extends BaseAdapter {
         finish_reason: 'stop'
       }]
     };
+  }
+
+  /**
+   * Prepare input for CLI embeddings command
+   * @param {string|Array} input - Input text(s) for embeddings
+   * @param {Object} options - Embeddings options
+   * @returns {string} - Formatted input
+   */
+  prepareEmbeddingsInput(input, options) {
+    // For embeddings, we'll send JSON input
+    const embeddingsInput = {
+      input,
+      options: options || {},
+      type: 'embeddings'
+    };
+    
+    return JSON.stringify(embeddingsInput, null, 2);
+  }
+
+  /**
+   * Parse CLI embeddings output into OpenAI-compatible response
+   * @param {string} output - Raw CLI output
+   * @param {string} requestId - Request ID
+   * @returns {Object} - OpenAI-compatible embeddings response
+   */
+  parseEmbeddingsOutput(output, requestId) {
+    try {
+      // Try to parse as JSON first
+      const parsed = JSON.parse(output);
+      
+      // If it's already in OpenAI embeddings format, return it
+      if (parsed.object === 'list' && Array.isArray(parsed.data)) {
+        return {
+          object: 'list',
+          model: this.providerConfig.models?.[0]?.dyadModelId || 'unknown',
+          ...parsed
+        };
+      }
+
+      // If it's an array of embeddings
+      if (Array.isArray(parsed)) {
+        return {
+          object: 'list',
+          data: parsed.map((embedding, index) => ({
+            object: 'embedding',
+            embedding: Array.isArray(embedding) ? embedding : embedding.embedding || [],
+            index
+          })),
+          model: this.providerConfig.models?.[0]?.dyadModelId || 'unknown',
+          usage: {
+            prompt_tokens: this.estimateTokens(JSON.stringify(parsed)),
+            total_tokens: this.estimateTokens(JSON.stringify(parsed))
+          }
+        };
+      }
+
+      // If it's a single embedding
+      if (parsed.embedding || Array.isArray(parsed)) {
+        return {
+          object: 'list',
+          data: [{
+            object: 'embedding',
+            embedding: parsed.embedding || parsed,
+            index: 0
+          }],
+          model: this.providerConfig.models?.[0]?.dyadModelId || 'unknown',
+          usage: {
+            prompt_tokens: this.estimateTokens(JSON.stringify(parsed)),
+            total_tokens: this.estimateTokens(JSON.stringify(parsed))
+          }
+        };
+      }
+    } catch (error) {
+      // Not JSON, treat as error
+      logger.warn('Failed to parse embeddings output as JSON', {
+        error: error.message,
+        output: output.substring(0, 200)
+      });
+    }
+
+    // Fallback: return error response
+    throw new Error(`Invalid embeddings output format: ${output.substring(0, 100)}`);
   }
 
   /**

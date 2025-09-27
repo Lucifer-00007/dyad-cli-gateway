@@ -155,7 +155,7 @@
   - **AC**: Deploys without host Docker socket, graceful shutdown works, migrations run
   - _Requirements: 8.5, 4.1_
 
-- [ ] 20. Add embeddings endpoint support
+- [x] 20. Add embeddings endpoint support
   - Implement POST /v1/embeddings endpoint
   - Add embeddings support to relevant adapters
   - Create embeddings-specific normalization

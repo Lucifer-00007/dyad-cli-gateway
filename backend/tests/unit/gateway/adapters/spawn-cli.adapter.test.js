@@ -192,9 +192,196 @@ describe('SpawnCliAdapter', () => {
   });
 
   describe('handleEmbeddings', () => {
-    it('should throw error as embeddings are not supported', async () => {
-      await expect(adapter.handleEmbeddings({ input: 'test' }))
-        .rejects.toThrow('Embeddings not supported by SpawnCliAdapter');
+    it('should throw error when embeddings not supported in config', async () => {
+      await expect(adapter.handleEmbeddings({
+        input: 'test text',
+        options: {}
+      })).rejects.toThrow('Embeddings not supported by this CLI adapter configuration');
+    });
+
+    it('should handle embeddings when supported in config', async () => {
+      // Create adapter with embeddings support
+      const embeddingsConfig = {
+        ...providerConfig,
+        supportsEmbeddings: true
+      };
+      const embeddingsAdapter = new SpawnCliAdapter(embeddingsConfig, {});
+
+      // Mock successful execution
+      const mockResult = {
+        success: true,
+        stdout: JSON.stringify({
+          object: 'list',
+          data: [
+            {
+              object: 'embedding',
+              embedding: [0.1, 0.2, 0.3, 0.4, 0.5],
+              index: 0
+            }
+          ]
+        }),
+        stderr: '',
+        exitCode: 0
+      };
+
+      // Mock the sandbox execution since Docker is enabled by default
+      mockSandbox.execute.mockResolvedValue(mockResult);
+
+      const result = await embeddingsAdapter.handleEmbeddings({
+        input: 'test text',
+        options: { encoding_format: 'float' }
+      });
+
+      expect(result).toMatchObject({
+        object: 'list',
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            object: 'embedding',
+            embedding: expect.any(Array),
+            index: expect.any(Number)
+          })
+        ])
+      });
+
+      expect(mockSandbox.execute).toHaveBeenCalledWith(
+        'echo',
+        ['--embeddings'],
+        expect.objectContaining({
+          input: expect.stringContaining('"type":"embeddings"'),
+          timeout: 30000,
+          image: 'alpine:latest'
+        })
+      );
+    });
+
+    it('should handle array input for embeddings', async () => {
+      // Create adapter with embeddings support
+      const embeddingsConfig = {
+        ...providerConfig,
+        supportsEmbeddings: true
+      };
+      const embeddingsAdapter = new SpawnCliAdapter(embeddingsConfig, {});
+
+      // Mock successful execution
+      const mockResult = {
+        success: true,
+        stdout: JSON.stringify([
+          [0.1, 0.2, 0.3],
+          [0.4, 0.5, 0.6]
+        ]),
+        stderr: '',
+        exitCode: 0
+      };
+
+      // Mock the sandbox execution since Docker is enabled by default
+      mockSandbox.execute.mockResolvedValue(mockResult);
+
+      const result = await embeddingsAdapter.handleEmbeddings({
+        input: ['text 1', 'text 2'],
+        options: {}
+      });
+
+      expect(result).toMatchObject({
+        object: 'list',
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            object: 'embedding',
+            embedding: [0.1, 0.2, 0.3],
+            index: 0
+          }),
+          expect.objectContaining({
+            object: 'embedding',
+            embedding: [0.4, 0.5, 0.6],
+            index: 1
+          })
+        ])
+      });
+    });
+
+    it('should handle single embedding response', async () => {
+      // Create adapter with embeddings support
+      const embeddingsConfig = {
+        ...providerConfig,
+        supportsEmbeddings: true
+      };
+      const embeddingsAdapter = new SpawnCliAdapter(embeddingsConfig, {});
+
+      // Mock successful execution with single embedding
+      const mockResult = {
+        success: true,
+        stdout: JSON.stringify({ embedding: [0.1, 0.2, 0.3] }),
+        stderr: '',
+        exitCode: 0
+      };
+
+      // Mock the sandbox execution since Docker is enabled by default
+      mockSandbox.execute.mockResolvedValue(mockResult);
+
+      const result = await embeddingsAdapter.handleEmbeddings({
+        input: 'single text',
+        options: {}
+      });
+
+      expect(result).toMatchObject({
+        object: 'list',
+        data: [
+          {
+            object: 'embedding',
+            embedding: [0.1, 0.2, 0.3],
+            index: 0
+          }
+        ]
+      });
+    });
+
+    it('should throw error for invalid embeddings output', async () => {
+      // Create adapter with embeddings support
+      const embeddingsConfig = {
+        ...providerConfig,
+        supportsEmbeddings: true
+      };
+      const embeddingsAdapter = new SpawnCliAdapter(embeddingsConfig, {});
+
+      // Mock execution with invalid output
+      const mockResult = {
+        success: true,
+        stdout: 'invalid json output',
+        stderr: '',
+        exitCode: 0
+      };
+
+      // Mock the sandbox execution since Docker is enabled by default
+      mockSandbox.execute.mockResolvedValue(mockResult);
+
+      await expect(embeddingsAdapter.handleEmbeddings({
+        input: 'test text',
+        options: {}
+      })).rejects.toThrow('Invalid embeddings output format');
+    });
+
+    it('should throw error when CLI command fails', async () => {
+      // Create adapter with embeddings support
+      const embeddingsConfig = {
+        ...providerConfig,
+        supportsEmbeddings: true
+      };
+      const embeddingsAdapter = new SpawnCliAdapter(embeddingsConfig, {});
+
+      // Mock failed execution
+      const mockResult = {
+        success: false,
+        stdout: '',
+        stderr: 'Command failed',
+        exitCode: 1
+      };
+
+      // Mock the sandbox execution since Docker is enabled by default
+      mockSandbox.execute.mockResolvedValue(mockResult);
+
+      await expect(embeddingsAdapter.handleEmbeddings({
+        input: 'test text',
+        options: {}
+      })).rejects.toThrow('CLI embeddings command failed with exit code 1');
     });
   });
 
