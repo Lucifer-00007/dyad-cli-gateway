@@ -15,6 +15,16 @@
     "dev": "cross-env NODE_ENV=development nodemon src/index.js",
     "test": "jest -i --colors --verbose --detectOpenHandles",
     "test:watch": "jest -i --watchAll",
+    "test:contract": "jest -i --colors --verbose --detectOpenHandles --testPathPattern=openapi-contract.test.js",
+    "test:e2e": "jest -i --colors --verbose --detectOpenHandles --testPathPattern=end-to-end-workflow.test.js",
+    "test:integration": "jest -i --colors --verbose --detectOpenHandles --testPathPattern=gateway/",
+    "test:workflow": "jest -i --colors --verbose --detectOpenHandles --testPathPattern=echo-workflow-validation.test.js",
+    "test:all-workflows": "jest -i --colors --verbose --detectOpenHandles --testPathPattern='(end-to-end-workflow|echo-workflow-validation).test.js'",
+    "test:mvp": "node scripts/test-mvp-complete.js",
+    "test:mvp-essential": "node scripts/test-mvp-essential.js",
+    "test:docker": "docker-compose -f docker-compose.integration.yml up --build --abort-on-container-exit",
+    "test:docker:clean": "docker-compose -f docker-compose.integration.yml down -v",
+    "validate:openapi": "node ../scripts/validate-openapi.js",
     "coverage": "jest -i --coverage",
     "coverage:coveralls": "jest -i --coverage --coverageReporters=text-lcov | coveralls",
     "lint": "eslint .",
@@ -82,6 +92,8 @@
     "xss-clean": "^0.1.1"
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "coveralls": "^3.0.7",
     "eslint": "^7.0.0",
     "eslint-config-airbnb-base": "^14.0.0",
@@ -97,6 +109,7 @@
     "node-mocks-http": "^1.8.0",
     "nodemon": "^2.0.0",
     "prettier": "^2.0.5",
-    "supertest": "^6.0.1"
+    "supertest": "^6.0.1",
+    "yaml": "^2.8.1"
   }
 }

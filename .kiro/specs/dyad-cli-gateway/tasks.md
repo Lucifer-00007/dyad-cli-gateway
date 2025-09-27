@@ -65,7 +65,7 @@
   - **AC**: CRUD works, POST /admin/providers/:id/test validates connectivity, requires admin auth
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 5.2, 5.4_
 
-- [ ] 9. Generate OpenAPI specification
+- [x] 9. Generate OpenAPI specification
   - Create OpenAPI v3 spec for /v1 and admin endpoints
   - Include request/response examples and error schemas
   - Commit spec to md-docs/openapi.yaml
@@ -73,7 +73,7 @@
   - **AC**: md-docs/openapi.yaml exists, CI runs contract test validating sample request/response
   - _Requirements: Documentation for frontend integration_
 
-- [ ] 10. Add basic integration tests and CI setup
+- [x] 10. Add basic integration tests and CI setup
   - Create end-to-end tests for provider registration → chat completion flow
   - Set up CI pipeline with unit tests and integration tests
   - Add basic container image scanning
