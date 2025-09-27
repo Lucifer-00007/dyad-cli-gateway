@@ -1,0 +1,277 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:4.4
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: password
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongo
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Run linting
+      run: |
+        cd backend
+        npm run lint
+
+    - name: Run unit tests
+      run: |
+        cd backend
+        npm test
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-jwt-secret
+        MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+    - name: Run OpenAPI contract tests
+      run: |
+        cd backend
+        npm run test:contract
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-jwt-secret
+        MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+    - name: Validate OpenAPI specification
+      run: |
+        # Install swagger-codegen-cli for validation
+        npm install -g @apidevtools/swagger-cli
+        # Validate the OpenAPI spec
+        swagger-cli validate md-docs/openapi.yaml
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [test]
+
+    services:
+      mongodb:
+        image: mongo:4.4
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: password
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongo
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Run end-to-end integration tests
+      run: |
+        cd backend
+        npm test -- --testPathPattern=end-to-end-workflow.test.js --verbose
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-jwt-secret
+        MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+    - name: Run gateway integration tests
+      run: |
+        cd backend
+        npm test -- --testPathPattern=gateway/ --verbose
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-jwt-secret
+        MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+    - name: Run essential MVP validation
+      run: |
+        cd backend
+        npm run test:mvp-essential
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-jwt-secret
+        MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+  frontend-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run frontend linting
+      run: |
+        cd frontend
+        npm run lint
+
+    - name: Run frontend type checking
+      run: |
+        cd frontend
+        npm run type-check
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [test, frontend-test, integration-tests]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend Docker image
+      run: |
+        cd backend
+        docker build -t dyad-cli-gateway:test .
+
+    - name: Build gateway Docker image
+      run: |
+        cd backend
+        docker build -f Dockerfile.gateway -t dyad-cli-gateway-standalone:test .
+
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run security audit (backend)
+      run: |
+        cd backend
+        npm audit --audit-level moderate
+
+    - name: Run security audit (frontend)
+      run: |
+        cd frontend
+        npm audit --audit-level moderate
+
+  container-security-scan:
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend Docker image for scanning
+      run: |
+        cd backend
+        docker build -t dyad-cli-gateway:scan .
+
+    - name: Build gateway Docker image for scanning
+      run: |
+        cd backend
+        docker build -f Dockerfile.gateway -t dyad-cli-gateway-standalone:scan .
+
+    - name: Run Trivy vulnerability scanner (backend)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'dyad-cli-gateway:scan'
+        format: 'sarif'
+        output: 'trivy-backend-results.sarif'
+
+    - name: Run Trivy vulnerability scanner (gateway)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'dyad-cli-gateway-standalone:scan'
+        format: 'sarif'
+        output: 'trivy-gateway-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab (backend)
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-backend-results.sarif'
+        category: 'backend-container'
+
+    - name: Upload Trivy scan results to GitHub Security tab (gateway)
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-gateway-results.sarif'
+        category: 'gateway-container'
+
+    - name: Run Trivy vulnerability scanner (backend) - table output
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'dyad-cli-gateway:scan'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Run Trivy vulnerability scanner (gateway) - table output
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'dyad-cli-gateway-standalone:scan'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
