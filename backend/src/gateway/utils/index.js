@@ -1,10 +1,10 @@
 /**
  * Gateway Utils Index
  * Exports all gateway utility modules
- * 
- * Utils will be implemented in future tasks
  */
 
+const DockerSandbox = require('./docker-sandbox');
+
 module.exports = {
-  // Placeholder for future utility exports
+  DockerSandbox
 };

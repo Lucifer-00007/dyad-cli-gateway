@@ -1,10 +1,14 @@
 /**
  * Gateway Adapters Index
  * Exports all adapter implementations
- * 
- * Adapters will be implemented in future tasks
  */
 
+const BaseAdapter = require('./base.adapter');
+const SpawnCliAdapter = require('./spawn-cli.adapter');
+const AdapterFactory = require('./adapter.factory');
+
 module.exports = {
-  // Placeholder for future adapter exports
+  BaseAdapter,
+  SpawnCliAdapter,
+  AdapterFactory
 };
