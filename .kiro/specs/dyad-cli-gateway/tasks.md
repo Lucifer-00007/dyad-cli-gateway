@@ -41,7 +41,7 @@
   - **AC**: Routes requests to correct adapter, normalizes to OpenAI JSON format
   - _Requirements: 3.1, 6.1, 6.2, 6.3_
 
-- [ ] 6. Implement core OpenAI-compatible endpoints
+- [x] 6. Implement core OpenAI-compatible endpoints
   - Implement POST /v1/chat/completions endpoint
   - Implement GET /v1/models endpoint
   - Create controllers to handle request/response processing
