@@ -9,7 +9,7 @@
   - **AC**: Directory structure matches design, config loads from ENV, Dockerfile builds successfully
   - _Requirements: 8.1, 8.2, 8.5_
 
-- [ ] 2. Implement core data models and database schemas
+- [x] 2. Implement core data models and database schemas
   - Create Provider Mongoose model with validation and encryption scaffolding
   - Create API Key model for gateway authentication
   - Implement model plugins for common functionality (encryption, validation)
@@ -17,7 +17,7 @@
   - **AC**: Models save/load correctly, validation works, tests cover edge cases
   - _Requirements: 2.1, 2.6, 5.1_
 
-- [ ] 3. Create adapter interface and spawn-cli echo adapter
+- [x] 3. Create adapter interface and spawn-cli echo adapter
   - Implement BaseAdapter interface class with standard methods
   - Create spawn-cli adapter with Docker sandbox helper (echo command for PoC)
   - Create adapter factory for instantiating different adapter types
