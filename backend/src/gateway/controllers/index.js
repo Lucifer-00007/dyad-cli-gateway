@@ -1,10 +1,10 @@
 /**
  * Gateway Controllers Index
  * Exports all gateway controller modules
- * 
- * Controllers will be implemented in future tasks
  */
 
+const v1Controller = require('./v1.controller');
+
 module.exports = {
-  // Placeholder for future controller exports
+  v1Controller,
 };

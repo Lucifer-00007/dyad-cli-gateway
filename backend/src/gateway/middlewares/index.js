@@ -6,10 +6,13 @@
 const apiKeyAuth = require('./apiKeyAuth');
 const requestLogger = require('./requestLogger');
 const { gatewayRateLimit, apiKeyRateLimit } = require('./gatewayRateLimit');
+const { errorConverter, errorHandler } = require('./errorHandler');
 
 module.exports = {
   apiKeyAuth,
   requestLogger,
   gatewayRateLimit,
   apiKeyRateLimit,
+  errorConverter,
+  errorHandler,
 };
