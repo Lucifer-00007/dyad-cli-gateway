@@ -1,0 +1,189 @@
+groups:
+  - name: dyad-gateway-alerts
+    rules:
+      # High Error Rate Alert
+      - alert: DyadGatewayHighErrorRate
+        expr: |
+          (
+            rate(dyad_gateway_http_requests_total{status_code=~"5.."}[5m]) /
+            rate(dyad_gateway_http_requests_total[5m])
+          ) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High error rate detected in Dyad CLI Gateway"
+          description: "Error rate is {{ $value }}% for the last 5 minutes, which is above the 5% threshold."
+
+      # High Response Time Alert
+      - alert: DyadGatewayHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(dyad_gateway_http_request_duration_seconds_bucket[5m])) > 5
+        for: 3m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High response time detected in Dyad CLI Gateway"
+          description: "95th percentile response time is {{ $value }}s, which is above the 5s threshold."
+
+      # Circuit Breaker Open Alert
+      - alert: DyadGatewayCircuitBreakerOpen
+        expr: |
+          dyad_gateway_circuit_breaker_state == 1
+        for: 1m
+        labels:
+          severity: critical
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Circuit breaker is open for {{ $labels.provider }}"
+          description: "Circuit breaker for provider {{ $labels.provider }} ({{ $labels.adapter_type }}) has been open for more than 1 minute."
+
+      # Provider Unhealthy Alert
+      - alert: DyadGatewayProviderUnhealthy
+        expr: |
+          dyad_gateway_provider_health_status == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Provider {{ $labels.provider }} is unhealthy"
+          description: "Provider {{ $labels.provider }} ({{ $labels.adapter_type }}) has been unhealthy for more than 2 minutes."
+
+      # High Rate Limit Hits Alert
+      - alert: DyadGatewayHighRateLimitHits
+        expr: |
+          rate(dyad_gateway_rate_limit_hits_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High rate limit hits detected"
+          description: "Rate limit hits are {{ $value }}/sec for the last 5 minutes, indicating potential abuse or misconfiguration."
+
+      # Sandbox Execution Failures Alert
+      - alert: DyadGatewaySandboxFailures
+        expr: |
+          (
+            rate(dyad_gateway_sandbox_executions_total{status!="success"}[5m]) /
+            rate(dyad_gateway_sandbox_executions_total[5m])
+          ) * 100 > 20
+        for: 3m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High sandbox execution failure rate"
+          description: "Sandbox execution failure rate is {{ $value }}% for provider {{ $labels.provider }}, which is above the 20% threshold."
+
+      # High Memory Usage Alert
+      - alert: DyadGatewayHighMemoryUsage
+        expr: |
+          (dyad_gateway_process_resident_memory_bytes / 1024 / 1024) > 1024
+        for: 5m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High memory usage in Dyad CLI Gateway"
+          description: "Memory usage is {{ $value }}MB, which is above the 1GB threshold."
+
+      # High CPU Usage Alert
+      - alert: DyadGatewayHighCPUUsage
+        expr: |
+          rate(dyad_gateway_process_cpu_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High CPU usage in Dyad CLI Gateway"
+          description: "CPU usage is {{ $value }}%, which is above the 80% threshold."
+
+      # Service Down Alert
+      - alert: DyadGatewayServiceDown
+        expr: |
+          up{job="dyad-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Dyad CLI Gateway service is down"
+          description: "Dyad CLI Gateway service has been down for more than 1 minute."
+
+      # Too Many Streaming Connections Alert
+      - alert: DyadGatewayTooManyStreamingConnections
+        expr: |
+          sum(dyad_gateway_streaming_connections_active) > 100
+        for: 2m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Too many active streaming connections"
+          description: "There are {{ $value }} active streaming connections, which may impact performance."
+
+      # Adapter Request Queue Buildup Alert
+      - alert: DyadGatewayAdapterQueueBuildup
+        expr: |
+          histogram_quantile(0.95, rate(dyad_gateway_adapter_request_duration_seconds_bucket[5m])) > 30
+        for: 3m
+        labels:
+          severity: critical
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Adapter request queue buildup detected"
+          description: "95th percentile adapter execution time is {{ $value }}s, indicating potential queue buildup or resource exhaustion."
+
+      # Authentication Failures Alert
+      - alert: DyadGatewayHighAuthFailures
+        expr: |
+          rate(dyad_gateway_api_key_requests_total{status="error"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: dyad-cli-gateway
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failures are {{ $value }}/sec, which may indicate brute force attacks or misconfigured clients."
+
+  - name: dyad-gateway-business-alerts
+    rules:
+      # Low Request Volume Alert (business metric)
+      - alert: DyadGatewayLowRequestVolume
+        expr: |
+          rate(dyad_gateway_http_requests_total[10m]) < 0.1
+        for: 10m
+        labels:
+          severity: info
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Low request volume in Dyad CLI Gateway"
+          description: "Request rate is {{ $value }}/sec for the last 10 minutes, which is unusually low."
+
+      # Token Usage Spike Alert
+      - alert: DyadGatewayTokenUsageSpike
+        expr: |
+          rate(dyad_gateway_tokens_processed_total[5m]) > 1000
+        for: 2m
+        labels:
+          severity: info
+          service: dyad-cli-gateway
+        annotations:
+          summary: "Token usage spike detected"
+          description: "Token processing rate is {{ $value }}/sec, which is significantly higher than normal."
+
+      # New Provider Added Alert
+      - alert: DyadGatewayNewProviderAdded
+        expr: |
+          increase(dyad_gateway_provider_health_status[1h]) > 0
+        labels:
+          severity: info
+          service: dyad-cli-gateway
+        annotations:
+          summary: "New provider added to Dyad CLI Gateway"
+          description: "A new provider {{ $labels.provider }} has been added and is being monitored."

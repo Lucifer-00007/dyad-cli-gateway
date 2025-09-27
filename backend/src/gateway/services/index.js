@@ -10,6 +10,8 @@ const ApiKeyService = require('./apikey.service');
 const { CircuitBreakerService } = require('./circuit-breaker.service');
 const { FallbackPolicyService } = require('./fallback-policy.service');
 const HealthMonitorService = require('./health-monitor.service');
+const MonitoringService = require('./monitoring.service');
+const StructuredLoggerService = require('./structured-logger.service');
 
 module.exports = {
   GatewayService,
@@ -19,4 +21,6 @@ module.exports = {
   CircuitBreakerService,
   FallbackPolicyService,
   HealthMonitorService,
+  MonitoringService,
+  StructuredLoggerService,
 };

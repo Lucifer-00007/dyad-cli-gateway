@@ -131,7 +131,7 @@
   - **AC**: Secrets stored in external system, keys rotate automatically, encryption uses KMS
   - _Requirements: 4.3, 4.4_
 
-- [ ] 17. Add comprehensive monitoring and alerting
+- [x] 17. Add comprehensive monitoring and alerting
   - Integrate Prometheus metrics collection
   - Create Grafana dashboards for gateway metrics
   - Configure alerting for error rates, latency, and circuit breaker status

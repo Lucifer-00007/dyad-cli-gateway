@@ -11,6 +11,8 @@ const OpenAINormalizer = require('./openai.normalizer');
 const { CircuitBreakerService } = require('./circuit-breaker.service');
 const { FallbackPolicyService } = require('./fallback-policy.service');
 const HealthMonitorService = require('./health-monitor.service');
+const monitoringService = require('./monitoring.service');
+const structuredLogger = require('./structured-logger.service');
 const crypto = require('crypto');
 
 class GatewayService {

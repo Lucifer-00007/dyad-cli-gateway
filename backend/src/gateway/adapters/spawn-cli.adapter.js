@@ -6,6 +6,8 @@
 const BaseAdapter = require('./base.adapter');
 const DockerSandbox = require('../utils/docker-sandbox');
 const logger = require('../../config/logger');
+const monitoringService = require('../services/monitoring.service');
+const structuredLogger = require('../services/structured-logger.service');
 const crypto = require('crypto');
 
 class SpawnCliAdapter extends BaseAdapter {

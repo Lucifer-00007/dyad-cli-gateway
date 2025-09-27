@@ -1,0 +1,51 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'dyad-gateway-monitor'
+
+rule_files:
+  - "alerts/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Dyad CLI Gateway metrics
+  - job_name: 'dyad-gateway'
+    static_configs:
+      - targets: ['host.docker.internal:3001'] # Adjust port based on your gateway configuration
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    scrape_timeout: 10s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Alertmanager monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  # Additional scrape config for gateway in different environments
+  - job_name: 'dyad-gateway-docker'
+    static_configs:
+      - targets: ['dyad-gateway:3001'] # For when gateway runs in Docker
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    scrape_timeout: 10s

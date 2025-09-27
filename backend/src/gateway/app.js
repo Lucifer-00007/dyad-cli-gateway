@@ -14,8 +14,9 @@ const httpStatus = require('http-status');
 const crypto = require('crypto');
 
 const gatewayConfig = require('./config/gateway.config');
-const { v1Routes, adminRoutes } = require('./routes');
+const { v1Routes, adminRoutes, metricsRoutes } = require('./routes');
 const { errorConverter, errorHandler } = require('./middlewares');
+const { correlationId, requestTracking, errorTracking } = require('./middlewares/monitoring.middleware');
 const { jwtStrategy } = require('../config/passport');
 const ApiError = require('../utils/ApiError');
 
@@ -29,6 +30,10 @@ app.use((req, res, next) => {
   req.requestId = `req_${crypto.randomBytes(8).toString('hex')}`;
   next();
 });
+
+// Add correlation ID and request tracking
+app.use(correlationId);
+app.use(requestTracking);
 
 // JWT authentication
 app.use(passport.initialize());
@@ -86,6 +91,9 @@ app.get('/ready', async (req, res) => {
   }
 });
 
+// Mount metrics routes (no authentication required for Prometheus scraping)
+app.use('/metrics', metricsRoutes);
+
 // Mount API routes
 app.use(gatewayConfig.apiPrefix, v1Routes);
 
@@ -99,6 +107,9 @@ app.use((req, res, next) => {
 
 // Convert errors to ApiError instances
 app.use(errorConverter);
+
+// Track errors in monitoring
+app.use(errorTracking);
 
 // Handle errors
 app.use(errorHandler);
