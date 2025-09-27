@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  mongodb-test:
+    image: mongo:4.4
+    container_name: dyad-gateway-test-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: test
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_test_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  gateway-integration-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dyad-gateway-integration-test
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      MONGODB_URL: mongodb://root:password@mongodb-test:27017/test?authSource=admin
+      JWT_SECRET: test-jwt-secret-integration
+      GATEWAY_ENABLED: true
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm run test:mvp
+    networks:
+      - gateway-test-network
+
+networks:
+  gateway-test-network:
+    driver: bridge
+
+volumes:
+  mongodb_test_data:
