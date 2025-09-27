@@ -14,13 +14,16 @@ class SpawnCliAdapter extends BaseAdapter {
     
     this.supportsStreaming = false; // CLI adapters typically don't support streaming
     
-    // Initialize Docker sandbox
-    this.sandbox = new DockerSandbox({
-      image: providerConfig.sandboxImage || 'alpine:latest',
-      timeout: (providerConfig.timeoutSeconds || 60) * 1000,
-      memoryLimit: providerConfig.memoryLimit || '512m',
-      cpuLimit: providerConfig.cpuLimit || '0.5'
-    });
+    // Initialize Docker sandbox if enabled
+    this.useDocker = providerConfig.dockerSandbox !== false;
+    if (this.useDocker) {
+      this.sandbox = new DockerSandbox({
+        image: providerConfig.sandboxImage || 'alpine:latest',
+        timeout: (providerConfig.timeoutSeconds || 60) * 1000,
+        memoryLimit: providerConfig.memoryLimit || '512m',
+        cpuLimit: providerConfig.cpuLimit || '0.5'
+      });
+    }
     
     // Validate required config
     if (!providerConfig.command) {
@@ -44,17 +47,32 @@ class SpawnCliAdapter extends BaseAdapter {
       // Prepare input for CLI command
       const input = this.prepareInput(messages, options);
       
-      // Execute command in sandbox
-      const result = await this.sandbox.execute(
-        this.providerConfig.command,
-        this.providerConfig.args || [],
-        {
-          input,
-          signal,
-          timeout: (this.providerConfig.timeoutSeconds || 60) * 1000,
-          image: this.providerConfig.sandboxImage
-        }
-      );
+      let result;
+      
+      if (this.useDocker) {
+        // Execute command in Docker sandbox
+        result = await this.sandbox.execute(
+          this.providerConfig.command,
+          this.providerConfig.args || [],
+          {
+            input,
+            signal,
+            timeout: (this.providerConfig.timeoutSeconds || 60) * 1000,
+            image: this.providerConfig.sandboxImage
+          }
+        );
+      } else {
+        // Execute command directly (for testing or when Docker is not available)
+        result = await this.executeDirectly(
+          this.providerConfig.command,
+          this.providerConfig.args || [],
+          {
+            input,
+            signal,
+            timeout: (this.providerConfig.timeoutSeconds || 60) * 1000
+          }
+        );
+      }
 
       if (!result.success) {
         throw new Error(`CLI command failed with exit code ${result.exitCode}: ${result.stderr}`);
@@ -220,11 +238,141 @@ class SpawnCliAdapter extends BaseAdapter {
   }
 
   /**
+   * Execute command directly without Docker (for testing or when Docker unavailable)
+   * @param {string} command - Command to execute
+   * @param {Array} args - Command arguments
+   * @param {Object} options - Execution options
+   * @returns {Promise<Object>} - Execution result
+   */
+  async executeDirectly(command, args = [], options = {}) {
+    const { spawn } = require('child_process');
+    const timeout = options.timeout || 30000;
+    const input = options.input || '';
+    
+    logger.info('Direct command execution', {
+      command: this.sanitizeForLogging(command),
+      args: args.map(arg => this.sanitizeForLogging(arg)),
+      timeout
+    });
+
+    return new Promise((resolve, reject) => {
+      let isResolved = false;
+      let timeoutId;
+      let childProcess;
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (childProcess && !childProcess.killed) {
+          childProcess.kill('SIGTERM');
+        }
+      };
+
+      const resolveOnce = (result) => {
+        if (isResolved) return;
+        isResolved = true;
+        cleanup();
+        resolve(result);
+      };
+
+      const rejectOnce = (error) => {
+        if (isResolved) return;
+        isResolved = true;
+        cleanup();
+        reject(error);
+      };
+
+      // Set up timeout
+      timeoutId = setTimeout(() => {
+        logger.warn('Direct command execution timeout', { command, timeout });
+        rejectOnce(new Error(`Command execution timeout after ${timeout}ms`));
+      }, timeout);
+
+      // Handle cancellation signal
+      if (options.signal) {
+        options.signal.addEventListener('abort', () => {
+          logger.info('Direct command execution cancelled', { command });
+          rejectOnce(new Error('Command execution cancelled'));
+        });
+      }
+
+      // Spawn process
+      childProcess = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      // Collect stdout
+      childProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      // Collect stderr
+      childProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      // Handle process completion
+      childProcess.on('close', (code) => {
+        logger.info('Direct command execution completed', {
+          command,
+          exitCode: code,
+          stdoutLength: stdout.length,
+          stderrLength: stderr.length
+        });
+
+        resolveOnce({
+          exitCode: code,
+          stdout: stdout.trim(),
+          stderr: stderr.trim(),
+          success: code === 0
+        });
+      });
+
+      // Handle process errors
+      childProcess.on('error', (error) => {
+        logger.error('Direct command execution error', {
+          command,
+          error: error.message
+        });
+        rejectOnce(error);
+      });
+
+      // Send input to stdin if provided
+      if (input) {
+        childProcess.stdin.write(input);
+      }
+      childProcess.stdin.end();
+    });
+  }
+
+  /**
+   * Sanitize sensitive data for logging
+   * @param {string} text - Text to sanitize
+   * @returns {string} - Sanitized text
+   */
+  sanitizeForLogging(text) {
+    if (typeof text !== 'string') {
+      return text;
+    }
+    
+    // Replace potential sensitive patterns
+    return text
+      .replace(/--?api[_-]?key[=\s]+[^\s]+/gi, '--api-key=***')
+      .replace(/--?token[=\s]+[^\s]+/gi, '--token=***')
+      .replace(/--?password[=\s]+[^\s]+/gi, '--password=***')
+      .replace(/--?secret[=\s]+[^\s]+/gi, '--secret=***');
+  }
+
+  /**
    * Cleanup resources
    */
   async cleanup() {
     // Docker containers are automatically cleaned up with --rm flag
-    // No additional cleanup needed
+    // No additional cleanup needed for direct execution
   }
 }
 
