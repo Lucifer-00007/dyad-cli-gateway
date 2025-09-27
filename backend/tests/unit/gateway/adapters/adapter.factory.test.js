@@ -5,6 +5,8 @@
 const AdapterFactory = require('../../../../src/gateway/adapters/adapter.factory');
 const SpawnCliAdapter = require('../../../../src/gateway/adapters/spawn-cli.adapter');
 const HttpSdkAdapter = require('../../../../src/gateway/adapters/http-sdk.adapter');
+const ProxyAdapter = require('../../../../src/gateway/adapters/proxy.adapter');
+const LocalAdapter = require('../../../../src/gateway/adapters/local.adapter');
 const BaseAdapter = require('../../../../src/gateway/adapters/base.adapter');
 
 // Mock the logger to avoid console output during tests
@@ -58,6 +60,38 @@ describe('AdapterFactory', () => {
       expect(adapter.providerConfig).toBe(httpProvider.adapterConfig);
     });
 
+    it('should create ProxyAdapter for proxy type', () => {
+      const proxyProvider = {
+        id: 'test-proxy-provider',
+        name: 'Test Proxy Provider',
+        type: 'proxy',
+        adapterConfig: {
+          baseUrl: 'https://proxy.example.com'
+        }
+      };
+      
+      const adapter = factory.createAdapter(proxyProvider);
+      
+      expect(adapter).toBeInstanceOf(ProxyAdapter);
+      expect(adapter.providerConfig).toBe(proxyProvider.adapterConfig);
+    });
+
+    it('should create LocalAdapter for local type', () => {
+      const localProvider = {
+        id: 'test-local-provider',
+        name: 'Test Local Provider',
+        type: 'local',
+        adapterConfig: {
+          baseUrl: 'http://localhost:11434'
+        }
+      };
+      
+      const adapter = factory.createAdapter(localProvider);
+      
+      expect(adapter).toBeInstanceOf(LocalAdapter);
+      expect(adapter.providerConfig).toBe(localProvider.adapterConfig);
+    });
+
     it('should pass credentials to adapter', () => {
       const credentials = { api_key: 'test-key' };
       const adapter = factory.createAdapter(validProvider, credentials);
@@ -84,7 +118,7 @@ describe('AdapterFactory', () => {
 
       expect(() => {
         factory.createAdapter(unknownProvider);
-      }).toThrow('Unknown adapter type: unknown-type. Available types: spawn-cli, http-sdk');
+      }).toThrow('Unknown adapter type: unknown-type. Available types: spawn-cli, http-sdk, proxy, local');
     });
 
     it('should throw error for invalid adapter configuration', () => {
@@ -109,6 +143,8 @@ describe('AdapterFactory', () => {
       expect(Array.isArray(types)).toBe(true);
       expect(types).toContain('spawn-cli');
       expect(types).toContain('http-sdk');
+      expect(types).toContain('proxy');
+      expect(types).toContain('local');
     });
   });
 
@@ -164,6 +200,8 @@ describe('AdapterFactory', () => {
     it('should return true for supported adapter type', () => {
       expect(factory.isSupported('spawn-cli')).toBe(true);
       expect(factory.isSupported('http-sdk')).toBe(true);
+      expect(factory.isSupported('proxy')).toBe(true);
+      expect(factory.isSupported('local')).toBe(true);
     });
 
     it('should return false for unsupported adapter type', () => {

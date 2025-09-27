@@ -118,4 +118,96 @@ describe('DockerSandbox', () => {
       result.catch(() => {});
     });
   });
+
+  describe('executeStream method signature', () => {
+    it('should be a function', () => {
+      expect(typeof sandbox.executeStream).toBe('function');
+    });
+
+    it('should return an async generator', () => {
+      // Mock spawn to avoid actual execution
+      const mockProcess = {
+        stdout: {
+          [Symbol.asyncIterator]: async function* () {
+            yield Buffer.from('test chunk');
+          }
+        },
+        stderr: { on: jest.fn() },
+        stdin: { write: jest.fn(), end: jest.fn() },
+        on: jest.fn((event, callback) => {
+          if (event === 'close') {
+            setTimeout(() => callback(0), 10);
+          }
+        })
+      };
+
+      jest.doMock('child_process', () => ({
+        spawn: jest.fn().mockReturnValue(mockProcess)
+      }));
+
+      const result = sandbox.executeStream('echo', ['test']);
+      expect(result).toBeDefined();
+      expect(typeof result[Symbol.asyncIterator]).toBe('function');
+    });
+  });
+
+  describe('streaming chunk formatting', () => {
+    it('should format stream chunks correctly', () => {
+      const chunk = { delta: { content: 'Hello' } };
+      const requestId = 'test-123';
+      const index = 0;
+
+      const result = sandbox.formatStreamChunk(chunk, requestId, index);
+
+      expect(result).toMatchObject({
+        id: requestId,
+        object: 'chat.completion.chunk',
+        created: expect.any(Number),
+        model: 'docker-cli',
+        choices: [{
+          index: 0,
+          delta: { content: 'Hello' },
+          finish_reason: null
+        }]
+      });
+    });
+
+    it('should format text chunks correctly', () => {
+      const text = 'Hello world';
+      const requestId = 'test-123';
+      const index = 0;
+
+      const result = sandbox.formatTextChunk(text, requestId, index);
+
+      expect(result).toMatchObject({
+        id: requestId,
+        object: 'chat.completion.chunk',
+        created: expect.any(Number),
+        model: 'docker-cli',
+        choices: [{
+          index: 0,
+          delta: { content: text },
+          finish_reason: null
+        }]
+      });
+    });
+
+    it('should format final chunk correctly', () => {
+      const requestId = 'test-123';
+
+      const result = sandbox.formatFinalChunk(requestId);
+
+      expect(result).toMatchObject({
+        id: requestId,
+        object: 'chat.completion.chunk',
+        created: expect.any(Number),
+        model: 'docker-cli',
+        choices: [{
+          index: 0,
+          delta: {},
+          finish_reason: 'stop'
+        }]
+      });
+    });
+  });
 });

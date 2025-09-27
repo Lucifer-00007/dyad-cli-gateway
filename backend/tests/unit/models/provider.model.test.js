@@ -135,7 +135,7 @@ describe('Provider model', () => {
         },
       });
 
-      await expect(provider.save()).rejects.toThrow('Proxy URL is required for proxy adapter');
+      await expect(provider.save()).rejects.toThrow('Base URL is required for proxy adapter');
     });
 
     test('should require localUrl for local adapter', async () => {
@@ -148,7 +148,7 @@ describe('Provider model', () => {
         },
       });
 
-      await expect(provider.save()).rejects.toThrow('Local URL is required for local adapter');
+      await expect(provider.save()).rejects.toThrow('Base URL is required for local adapter');
     });
   });
 

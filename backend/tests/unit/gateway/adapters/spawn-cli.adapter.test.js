@@ -93,7 +93,7 @@ describe('SpawnCliAdapter', () => {
         'echo',
         [],
         {
-          input: JSON.stringify({ messages, options }, null, 2),
+          input: JSON.stringify({ messages, options, stream: false }, null, 2),
           signal: undefined,
           timeout: 30000,
           image: 'alpine:latest'
@@ -290,7 +290,8 @@ describe('SpawnCliAdapter', () => {
       
       expect(parsed).toEqual({
         messages,
-        options
+        options,
+        stream: false
       });
     });
   });
@@ -351,6 +352,148 @@ describe('SpawnCliAdapter', () => {
       expect(adapter.estimateTokens('hello world')).toBe(3); // 11 chars / 4 = 2.75 -> 3
       expect(adapter.estimateTokens('')).toBe(0);
       expect(adapter.estimateTokens(null)).toBe(0);
+    });
+  });
+
+  describe('streaming support', () => {
+    beforeEach(() => {
+      // Create adapter with streaming support
+      providerConfig.supportsStreaming = true;
+      adapter = new SpawnCliAdapter(providerConfig, {});
+    });
+
+    it('should enable streaming when configured', () => {
+      expect(adapter.supportsStreaming).toBe(true);
+    });
+
+    it('should handle streaming chat request', async () => {
+      const messages = [{ role: 'user', content: 'Hello, world!' }];
+      const options = { max_tokens: 100 };
+      const requestMeta = { requestId: 'test-123' };
+
+      // Mock streaming response
+      const mockStreamChunks = [
+        { delta: { content: 'Hello' } },
+        { delta: { content: ' world' } },
+        { delta: {}, finish_reason: 'stop' }
+      ];
+
+      mockSandbox.executeStream = jest.fn(async function* () {
+        for (const chunk of mockStreamChunks) {
+          yield chunk;
+        }
+      });
+
+      const result = await adapter.handleChat({ 
+        messages, 
+        options, 
+        requestMeta, 
+        stream: true 
+      });
+
+      // Should return the stream generator
+      expect(result).toBeDefined();
+      
+      // Collect chunks from generator
+      const chunks = [];
+      for await (const chunk of result) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(mockStreamChunks.length);
+      expect(mockSandbox.executeStream).toHaveBeenCalledWith(
+        'echo',
+        [],
+        expect.objectContaining({
+          input: JSON.stringify({ messages, options, stream: true }, null, 2),
+          timeout: 30000,
+          image: 'alpine:latest',
+          requestId: 'test-123'
+        })
+      );
+    });
+
+    it('should fall back to non-streaming when streaming not supported', async () => {
+      // Create adapter without streaming support
+      const nonStreamingConfig = { ...providerConfig, supportsStreaming: false };
+      const nonStreamingAdapter = new SpawnCliAdapter(nonStreamingConfig, {});
+
+      const messages = [{ role: 'user', content: 'Hello, world!' }];
+      const options = { max_tokens: 100 };
+      const requestMeta = { requestId: 'test-123' };
+
+      mockSandbox.execute.mockResolvedValue({
+        success: true,
+        exitCode: 0,
+        stdout: 'Hello, world!',
+        stderr: ''
+      });
+
+      const result = await nonStreamingAdapter.handleChat({ 
+        messages, 
+        options, 
+        requestMeta, 
+        stream: true 
+      });
+
+      // Should return regular response, not a generator
+      expect(result).toMatchObject({
+        id: 'test-123',
+        object: 'chat.completion'
+      });
+      expect(mockSandbox.execute).toHaveBeenCalled();
+    });
+
+    it('should handle streaming cancellation', async () => {
+      const messages = [{ role: 'user', content: 'Hello, world!' }];
+      const options = { max_tokens: 100 };
+      const requestMeta = { requestId: 'test-123' };
+      const signal = { aborted: false };
+
+      mockSandbox.executeStream = jest.fn(async function* () {
+        yield { delta: { content: 'Hello' } };
+        // Simulate cancellation
+        signal.aborted = true;
+        throw new Error('Command execution cancelled');
+      });
+
+      const streamGenerator = adapter.handleChatStream({ 
+        messages, 
+        options, 
+        requestMeta, 
+        signal 
+      });
+
+      await expect(async () => {
+        for await (const chunk of streamGenerator) {
+          // Should throw on cancellation
+        }
+      }).rejects.toThrow('Command execution cancelled');
+
+      expect(mockSandbox.executeStream).toHaveBeenCalledWith(
+        'echo',
+        [],
+        expect.objectContaining({ signal })
+      );
+    });
+
+    it('should throw error when streaming not supported but handleChatStream called', async () => {
+      // Create adapter without streaming support
+      const nonStreamingConfig = { ...providerConfig, supportsStreaming: false };
+      const nonStreamingAdapter = new SpawnCliAdapter(nonStreamingConfig, {});
+
+      const messages = [{ role: 'user', content: 'Hello, world!' }];
+      const options = { max_tokens: 100 };
+      const requestMeta = { requestId: 'test-123' };
+
+      await expect(async () => {
+        const generator = nonStreamingAdapter.handleChatStream({ 
+          messages, 
+          options, 
+          requestMeta 
+        });
+        await generator.next();
+      }).rejects.toThrow('Streaming not supported by this adapter');
     });
   });
 

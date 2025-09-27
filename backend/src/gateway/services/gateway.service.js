@@ -50,16 +50,18 @@ class GatewayService {
    * @param {Object} params.options - Chat options
    * @param {Object} params.requestMeta - Request metadata
    * @param {AbortSignal} params.signal - Cancellation signal
-   * @returns {Promise<Object>} - OpenAI-compatible response
+   * @param {boolean} params.stream - Whether to stream the response
+   * @returns {Promise<Object|AsyncGenerator>} - OpenAI-compatible response or stream
    */
-  async handleChatCompletion({ model, messages, options = {}, requestMeta = {}, signal }) {
+  async handleChatCompletion({ model, messages, options = {}, requestMeta = {}, signal, stream = false }) {
     const requestId = requestMeta.requestId || crypto.randomBytes(8).toString('hex');
     
     logger.info('Processing chat completion request', {
       requestId,
       model,
       messageCount: messages.length,
-      apiKeyId: requestMeta.apiKeyId
+      apiKeyId: requestMeta.apiKeyId,
+      stream
     });
 
     try {
@@ -78,6 +80,16 @@ class GatewayService {
       // Create adapter instance
       const adapter = this.adapterFactory.createAdapter(provider, provider.credentials);
 
+      // Check if streaming is supported
+      if (stream && !adapter.supportsStreaming) {
+        logger.warn('Streaming requested but not supported by adapter, falling back to non-streaming', {
+          requestId,
+          model,
+          providerId: provider._id
+        });
+        stream = false;
+      }
+
       // Prepare adapter request
       const adapterRequest = {
         messages,
@@ -92,8 +104,14 @@ class GatewayService {
           providerId: provider._id,
           providerName: provider.name
         },
-        signal
+        signal,
+        stream
       };
+
+      if (stream) {
+        // Return streaming generator
+        return this.handleChatCompletionStream(adapter, adapterRequest, model, provider);
+      }
 
       // Execute adapter request
       const adapterResponse = await adapter.handleChat(adapterRequest);
@@ -125,6 +143,71 @@ class GatewayService {
 
       // Normalize error response
       throw this.normalizer.normalizeError(error, requestId);
+    }
+  }
+
+  /**
+   * Handle streaming chat completion request
+   * @param {Object} adapter - Adapter instance
+   * @param {Object} adapterRequest - Adapter request parameters
+   * @param {string} model - Model ID
+   * @param {Object} provider - Provider document
+   * @returns {AsyncGenerator} - Stream of chat completion chunks
+   */
+  async *handleChatCompletionStream(adapter, adapterRequest, model, provider) {
+    const requestId = adapterRequest.requestMeta.requestId;
+    
+    try {
+      logger.info('Processing streaming chat completion request', {
+        requestId,
+        model,
+        providerId: provider._id
+      });
+
+      // Get streaming response from adapter
+      const streamGenerator = adapter.handleChatStream(adapterRequest);
+
+      let totalTokens = 0;
+      let chunkCount = 0;
+
+      for await (const chunk of streamGenerator) {
+        // Normalize chunk to OpenAI format
+        const normalizedChunk = this.normalizer.normalizeStreamChunk(
+          chunk,
+          model,
+          requestId,
+          provider
+        );
+
+        // Track tokens if available
+        if (chunk.usage) {
+          totalTokens += chunk.usage.total_tokens || 0;
+        }
+
+        chunkCount++;
+        yield normalizedChunk;
+      }
+
+      logger.info('Streaming chat completion request completed', {
+        requestId,
+        model,
+        providerId: provider._id,
+        chunkCount,
+        totalTokens
+      });
+
+    } catch (error) {
+      logger.error('Streaming chat completion request failed', {
+        requestId,
+        model,
+        providerId: provider._id,
+        error: error.message,
+        stack: error.stack
+      });
+
+      // Send error chunk
+      const errorChunk = this.normalizer.normalizeStreamError(error, requestId, model);
+      yield errorChunk;
     }
   }
 

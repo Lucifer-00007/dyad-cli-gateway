@@ -102,29 +102,78 @@ const adapterConfigSchema = mongoose.Schema({
     of: String,
   },
   
-  // Proxy adapter specific
-  proxyUrl: {
+  // Additional endpoints for HTTP-based adapters
+  chatEndpoint: {
     type: String,
     trim: true,
-    validate: {
-      validator: function(v) {
-        return !v || validator.isURL(v);
-      },
-      message: 'Proxy URL must be a valid URL'
-    }
+  },
+  embeddingsEndpoint: {
+    type: String,
+    trim: true,
+  },
+  modelsEndpoint: {
+    type: String,
+    trim: true,
   },
   
-  // Local adapter specific
-  localUrl: {
+  // Streaming support
+  supportsStreaming: {
+    type: Boolean,
+    default: false,
+  },
+  
+  // Default models
+  defaultModel: {
     type: String,
     trim: true,
-    validate: {
-      validator: function(v) {
-        return !v || validator.isURL(v);
-      },
-      message: 'Local URL must be a valid URL'
-    }
   },
+  defaultEmbeddingModel: {
+    type: String,
+    trim: true,
+  },
+  
+  // Service type for local adapters
+  serviceType: {
+    type: String,
+    trim: true,
+  },
+  
+  // Health check configuration
+  healthEndpoint: {
+    type: String,
+    trim: true,
+  },
+  healthCheckIntervalMs: {
+    type: Number,
+    min: 1000,
+    max: 3600000,
+  },
+  healthCheckTimeoutMs: {
+    type: Number,
+    min: 1000,
+    max: 60000,
+  },
+  healthRetryAttempts: {
+    type: Number,
+    min: 1,
+    max: 10,
+  },
+  
+  // Remote access flag for local adapters
+  allowRemote: {
+    type: Boolean,
+    default: false,
+  },
+  
+  // Header rewriting for proxy adapters
+  headerRewrites: {
+    type: Map,
+    of: String,
+  },
+  removeHeaders: [{
+    type: String,
+    trim: true,
+  }],
   healthCheckPath: {
     type: String,
     default: '/health',
@@ -316,13 +365,13 @@ providerSchema.pre('save', function (next) {
       }
       break;
     case 'proxy':
-      if (!adapterConfig.proxyUrl) {
-        return next(new Error('Proxy URL is required for proxy adapter'));
+      if (!adapterConfig.baseUrl) {
+        return next(new Error('Base URL is required for proxy adapter'));
       }
       break;
     case 'local':
-      if (!adapterConfig.localUrl) {
-        return next(new Error('Local URL is required for local adapter'));
+      if (!adapterConfig.baseUrl) {
+        return next(new Error('Base URL is required for local adapter'));
       }
       break;
     default:

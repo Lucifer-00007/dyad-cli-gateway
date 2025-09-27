@@ -288,23 +288,19 @@ describe('OpenAI Endpoints', () => {
       });
     });
 
-    test('should return 400 when streaming is requested (not yet supported)', async () => {
+    test('should return 200 and stream when streaming is requested', async () => {
       const streamingRequest = { ...validChatRequest, stream: true };
 
       const res = await request(app)
         .post('/v1/chat/completions')
         .set('Authorization', `Bearer ${apiKey.key}`)
         .send(streamingRequest)
-        .expect(httpStatus.BAD_REQUEST);
+        .expect(httpStatus.OK)
+        .expect('Content-Type', 'text/event-stream');
 
-      expect(res.body).toEqual({
-        error: {
-          message: 'Streaming is not yet supported',
-          type: 'invalid_request_error',
-          code: 'streaming_not_supported',
-          request_id: expect.any(String),
-        }
-      });
+      // Basic check that we get streaming response
+      expect(res.headers['cache-control']).toBe('no-cache');
+      expect(res.headers['connection']).toBe('keep-alive');
     });
 
     test('should return 401 when no API key provided', async () => {

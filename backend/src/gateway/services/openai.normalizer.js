@@ -328,6 +328,101 @@ class OpenAINormalizer {
   }
 
   /**
+   * Normalize streaming chunk to OpenAI format
+   * @param {Object} chunk - Raw chunk from adapter
+   * @param {string} dyadModelId - Dyad model ID
+   * @param {string} requestId - Request ID
+   * @param {Object} provider - Provider document
+   * @returns {Object} - OpenAI-compatible chunk
+   */
+  normalizeStreamChunk(chunk, dyadModelId, requestId, provider) {
+    try {
+      // If chunk is already in OpenAI format, enhance it
+      if (chunk.object === 'chat.completion.chunk') {
+        return {
+          ...chunk,
+          id: chunk.id || requestId,
+          model: dyadModelId,
+          created: chunk.created || Math.floor(Date.now() / 1000)
+        };
+      }
+
+      // Convert raw chunk to OpenAI format
+      const normalized = {
+        id: requestId,
+        object: 'chat.completion.chunk',
+        created: Math.floor(Date.now() / 1000),
+        model: dyadModelId,
+        choices: [{
+          index: 0,
+          delta: chunk.delta || { content: chunk.content || '' },
+          finish_reason: chunk.finish_reason || null
+        }]
+      };
+
+      // Add usage if available
+      if (chunk.usage) {
+        normalized.usage = chunk.usage;
+      }
+
+      return normalized;
+
+    } catch (error) {
+      logger.error('Failed to normalize stream chunk', {
+        requestId,
+        dyadModelId,
+        providerId: provider._id,
+        error: error.message
+      });
+      
+      // Return error chunk
+      return {
+        id: requestId,
+        object: 'chat.completion.chunk',
+        created: Math.floor(Date.now() / 1000),
+        model: dyadModelId,
+        choices: [{
+          index: 0,
+          delta: {},
+          finish_reason: 'error'
+        }],
+        error: {
+          message: 'Chunk normalization failed',
+          type: 'internal_error'
+        }
+      };
+    }
+  }
+
+  /**
+   * Normalize streaming error to OpenAI format
+   * @param {Error} error - Error object
+   * @param {string} requestId - Request ID
+   * @param {string} dyadModelId - Dyad model ID
+   * @returns {Object} - OpenAI-compatible error chunk
+   */
+  normalizeStreamError(error, requestId, dyadModelId) {
+    const normalizedError = this.normalizeError(error, requestId);
+    
+    return {
+      id: requestId,
+      object: 'chat.completion.chunk',
+      created: Math.floor(Date.now() / 1000),
+      model: dyadModelId,
+      choices: [{
+        index: 0,
+        delta: {},
+        finish_reason: 'error'
+      }],
+      error: {
+        message: normalizedError.message,
+        type: normalizedError.openaiType || 'internal_error',
+        code: normalizedError.openaiCode || 'internal_server_error'
+      }
+    };
+  }
+
+  /**
    * Estimate tokens from embeddings
    * @param {Array} embeddings - Array of embeddings
    * @returns {number} - Estimated token count

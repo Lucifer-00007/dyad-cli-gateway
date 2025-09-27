@@ -12,7 +12,8 @@ class SpawnCliAdapter extends BaseAdapter {
   constructor(providerConfig, credentials) {
     super(providerConfig, credentials);
     
-    this.supportsStreaming = false; // CLI adapters typically don't support streaming
+    // Enable streaming if explicitly configured
+    this.supportsStreaming = providerConfig.supportsStreaming === true;
     
     // Initialize Docker sandbox if enabled
     this.useDocker = providerConfig.dockerSandbox !== false;
@@ -34,18 +35,32 @@ class SpawnCliAdapter extends BaseAdapter {
   /**
    * Handle chat completion request
    */
-  async handleChat({ messages, options, requestMeta, signal }) {
+  async handleChat({ messages, options, requestMeta, signal, stream = false }) {
     const requestId = requestMeta?.requestId || crypto.randomBytes(8).toString('hex');
     
     logger.info('SpawnCliAdapter handling chat request', {
       requestId,
       messageCount: messages.length,
-      command: this.providerConfig.command
+      command: this.providerConfig.command,
+      stream
     });
+
+    // If streaming is requested but not supported, fall back to non-streaming
+    if (stream && !this.supportsStreaming) {
+      logger.warn('Streaming requested but not supported by adapter, falling back to non-streaming', {
+        requestId,
+        command: this.providerConfig.command
+      });
+      stream = false;
+    }
+
+    if (stream) {
+      return this.handleChatStream({ messages, options, requestMeta, signal });
+    }
 
     try {
       // Prepare input for CLI command
-      const input = this.prepareInput(messages, options);
+      const input = this.prepareInput(messages, options, stream);
       
       let result;
       
@@ -83,6 +98,63 @@ class SpawnCliAdapter extends BaseAdapter {
       
     } catch (error) {
       logger.error('SpawnCliAdapter chat request failed', {
+        requestId,
+        error: error.message,
+        command: this.providerConfig.command
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Handle streaming chat completion request
+   */
+  async *handleChatStream({ messages, options, requestMeta, signal }) {
+    const requestId = requestMeta?.requestId || crypto.randomBytes(8).toString('hex');
+    
+    if (!this.supportsStreaming) {
+      throw new Error('Streaming not supported by this adapter');
+    }
+
+    logger.info('SpawnCliAdapter handling streaming chat request', {
+      requestId,
+      messageCount: messages.length,
+      command: this.providerConfig.command
+    });
+
+    try {
+      // Prepare input for CLI command with streaming flag
+      const input = this.prepareInput(messages, options, true);
+      
+      if (this.useDocker) {
+        // Execute command in Docker sandbox with streaming
+        yield* this.sandbox.executeStream(
+          this.providerConfig.command,
+          this.providerConfig.args || [],
+          {
+            input,
+            signal,
+            timeout: (this.providerConfig.timeoutSeconds || 60) * 1000,
+            image: this.providerConfig.sandboxImage,
+            requestId
+          }
+        );
+      } else {
+        // Execute command directly with streaming
+        yield* this.executeDirectlyStream(
+          this.providerConfig.command,
+          this.providerConfig.args || [],
+          {
+            input,
+            signal,
+            timeout: (this.providerConfig.timeoutSeconds || 60) * 1000,
+            requestId
+          }
+        );
+      }
+      
+    } catch (error) {
+      logger.error('SpawnCliAdapter streaming chat request failed', {
         requestId,
         error: error.message,
         command: this.providerConfig.command
@@ -163,13 +235,15 @@ class SpawnCliAdapter extends BaseAdapter {
    * Prepare input for CLI command
    * @param {Array} messages - Chat messages
    * @param {Object} options - Chat options
+   * @param {boolean} stream - Whether this is for streaming
    * @returns {string} - Formatted input
    */
-  prepareInput(messages, options) {
+  prepareInput(messages, options, stream = false) {
     // For echo adapter, we'll send JSON input
     const input = {
       messages,
-      options: options || {}
+      options: options || {},
+      stream
     };
     
     return JSON.stringify(input, null, 2);
@@ -365,6 +439,220 @@ class SpawnCliAdapter extends BaseAdapter {
       .replace(/--?token[=\s]+[^\s]+/gi, '--token=***')
       .replace(/--?password[=\s]+[^\s]+/gi, '--password=***')
       .replace(/--?secret[=\s]+[^\s]+/gi, '--secret=***');
+  }
+
+  /**
+   * Execute command directly with streaming support
+   * @param {string} command - Command to execute
+   * @param {Array} args - Command arguments
+   * @param {Object} options - Execution options
+   * @returns {AsyncGenerator} - Stream of response chunks
+   */
+  async *executeDirectlyStream(command, args = [], options = {}) {
+    const { spawn } = require('child_process');
+    const timeout = options.timeout || 30000;
+    const input = options.input || '';
+    const requestId = options.requestId;
+    
+    logger.info('Direct command execution with streaming', {
+      command: this.sanitizeForLogging(command),
+      args: args.map(arg => this.sanitizeForLogging(arg)),
+      timeout,
+      requestId
+    });
+
+    let childProcess;
+    let isFinished = false;
+    let timeoutId;
+
+    const cleanup = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (childProcess && !childProcess.killed) {
+        logger.info('Killing child process due to cleanup', { requestId, command });
+        childProcess.kill('SIGTERM');
+        // Force kill after grace period
+        setTimeout(() => {
+          if (!childProcess.killed) {
+            logger.warn('Force killing child process', { requestId, command });
+            childProcess.kill('SIGKILL');
+          }
+        }, 2000);
+      }
+    };
+
+    try {
+      // Set up timeout
+      timeoutId = setTimeout(() => {
+        logger.warn('Direct command execution timeout during streaming', { command, timeout, requestId });
+        isFinished = true;
+        cleanup();
+      }, timeout);
+
+      // Handle cancellation signal
+      if (options.signal) {
+        options.signal.addEventListener('abort', () => {
+          logger.info('Direct command execution cancelled during streaming', { command, requestId });
+          isFinished = true;
+          cleanup();
+        });
+      }
+
+      // Spawn process
+      childProcess = spawn(command, args, {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let stderr = '';
+
+      // Collect stderr
+      childProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      // Send input to stdin if provided
+      if (input) {
+        childProcess.stdin.write(input);
+      }
+      childProcess.stdin.end();
+
+      // Stream stdout data
+      let buffer = '';
+      let chunkIndex = 0;
+
+      for await (const chunk of childProcess.stdout) {
+        if (isFinished) break;
+
+        buffer += chunk.toString();
+        
+        // Try to parse complete JSON lines for streaming
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              // Try to parse as streaming JSON
+              const parsed = JSON.parse(line.trim());
+              if (parsed.type === 'chunk' || parsed.delta) {
+                yield this.formatStreamChunk(parsed, requestId, chunkIndex++);
+              }
+            } catch (e) {
+              // Not JSON, treat as text chunk
+              yield this.formatTextChunk(line.trim(), requestId, chunkIndex++);
+            }
+          }
+        }
+      }
+
+      // Process any remaining buffer
+      if (buffer.trim() && !isFinished) {
+        try {
+          const parsed = JSON.parse(buffer.trim());
+          if (parsed.type === 'chunk' || parsed.delta) {
+            yield this.formatStreamChunk(parsed, requestId, chunkIndex++);
+          }
+        } catch (e) {
+          yield this.formatTextChunk(buffer.trim(), requestId, chunkIndex++);
+        }
+      }
+
+      // Wait for process to complete
+      await new Promise((resolve, reject) => {
+        childProcess.on('close', (code) => {
+          logger.info('Direct command execution completed during streaming', {
+            command,
+            exitCode: code,
+            stderrLength: stderr.length,
+            requestId
+          });
+
+          if (code !== 0) {
+            reject(new Error(`Command failed with exit code ${code}: ${stderr}`));
+          } else {
+            resolve();
+          }
+        });
+
+        childProcess.on('error', (error) => {
+          logger.error('Direct command execution error during streaming', {
+            command,
+            error: error.message,
+            requestId
+          });
+          reject(error);
+        });
+      });
+
+      // Send final chunk
+      yield this.formatFinalChunk(requestId);
+
+    } finally {
+      isFinished = true;
+      cleanup();
+    }
+  }
+
+  /**
+   * Format streaming chunk for OpenAI compatibility
+   * @param {Object} parsed - Parsed chunk data
+   * @param {string} requestId - Request ID
+   * @param {number} index - Chunk index
+   * @returns {Object} - Formatted chunk
+   */
+  formatStreamChunk(parsed, requestId, index) {
+    return {
+      id: requestId,
+      object: 'chat.completion.chunk',
+      created: Math.floor(Date.now() / 1000),
+      model: this.providerConfig.models?.[0]?.dyadModelId || 'unknown',
+      choices: [{
+        index: 0,
+        delta: parsed.delta || { content: parsed.content || '' },
+        finish_reason: parsed.finish_reason || null
+      }]
+    };
+  }
+
+  /**
+   * Format text chunk for OpenAI compatibility
+   * @param {string} text - Text content
+   * @param {string} requestId - Request ID
+   * @param {number} index - Chunk index
+   * @returns {Object} - Formatted chunk
+   */
+  formatTextChunk(text, requestId, index) {
+    return {
+      id: requestId,
+      object: 'chat.completion.chunk',
+      created: Math.floor(Date.now() / 1000),
+      model: this.providerConfig.models?.[0]?.dyadModelId || 'unknown',
+      choices: [{
+        index: 0,
+        delta: { content: text },
+        finish_reason: null
+      }]
+    };
+  }
+
+  /**
+   * Format final chunk to indicate completion
+   * @param {string} requestId - Request ID
+   * @returns {Object} - Final chunk
+   */
+  formatFinalChunk(requestId) {
+    return {
+      id: requestId,
+      object: 'chat.completion.chunk',
+      created: Math.floor(Date.now() / 1000),
+      model: this.providerConfig.models?.[0]?.dyadModelId || 'unknown',
+      choices: [{
+        index: 0,
+        delta: {},
+        finish_reason: 'stop'
+      }]
+    };
   }
 
   /**

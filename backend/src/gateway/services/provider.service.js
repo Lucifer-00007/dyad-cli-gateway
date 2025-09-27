@@ -384,13 +384,31 @@ class ProviderService {
         }
         break;
       case 'proxy':
-        if (!adapterConfig.proxyUrl) {
-          throw new ApiError(httpStatus.BAD_REQUEST, 'Proxy URL is required for proxy adapter');
+        if (!adapterConfig.baseUrl) {
+          throw new ApiError(httpStatus.BAD_REQUEST, 'Base URL is required for proxy adapter');
         }
         break;
       case 'local':
-        if (!adapterConfig.localUrl) {
-          throw new ApiError(httpStatus.BAD_REQUEST, 'Local URL is required for local adapter');
+        if (!adapterConfig.baseUrl) {
+          throw new ApiError(httpStatus.BAD_REQUEST, 'Base URL is required for local adapter');
+        }
+        // Validate that it's a local URL unless allowRemote is set
+        try {
+          const url = new URL(adapterConfig.baseUrl);
+          const isLocal = url.hostname === 'localhost' || 
+                         url.hostname === '127.0.0.1' || 
+                         url.hostname.startsWith('192.168.') ||
+                         url.hostname.startsWith('10.') ||
+                         url.hostname.startsWith('172.');
+          
+          if (!isLocal && !adapterConfig.allowRemote) {
+            throw new ApiError(httpStatus.BAD_REQUEST, 'baseUrl should be a local address, or set allowRemote: true');
+          }
+        } catch (error) {
+          if (error instanceof ApiError) {
+            throw error;
+          }
+          throw new ApiError(httpStatus.BAD_REQUEST, 'baseUrl must be a valid URL');
         }
         break;
       default:

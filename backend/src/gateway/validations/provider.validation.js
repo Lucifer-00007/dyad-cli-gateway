@@ -22,10 +22,11 @@ const adapterConfigSchema = Joi.object({
   memoryLimit: Joi.string().pattern(/^\d+[kmg]?$/i).default('512m'),
   cpuLimit: Joi.string().pattern(/^\d*\.?\d+$/).default('0.5'),
   
-  // HTTP-SDK specific
+  // HTTP-SDK, Proxy, and Local adapter specific
   baseUrl: Joi.string().uri(),
   chatEndpoint: Joi.string().trim().default('/v1/chat/completions'),
   embeddingsEndpoint: Joi.string().trim(),
+  modelsEndpoint: Joi.string().trim(),
   timeoutMs: Joi.number().integer().min(1000).max(300000).default(30000),
   retryBaseDelay: Joi.number().integer().min(100).max(10000).default(1000),
   retryMaxDelay: Joi.number().integer().min(1000).max(60000).default(10000),
@@ -38,12 +39,25 @@ const adapterConfigSchema = Joi.object({
   embeddingsRequestTransform: Joi.function(),
   embeddingsResponseTransform: Joi.function(),
   
-  // Proxy specific
-  proxyUrl: Joi.string().uri(),
+  // Default models
+  defaultModel: Joi.string().trim(),
+  defaultEmbeddingModel: Joi.string().trim(),
   
-  // Local specific
-  localUrl: Joi.string().uri(),
-  healthCheckPath: Joi.string().default('/health'),
+  // Service type for local adapters
+  serviceType: Joi.string().trim(),
+  
+  // Health check configuration
+  healthEndpoint: Joi.string().trim(),
+  healthCheckIntervalMs: Joi.number().integer().min(1000).max(3600000),
+  healthCheckTimeoutMs: Joi.number().integer().min(1000).max(60000),
+  healthRetryAttempts: Joi.number().integer().min(1).max(10),
+  
+  // Remote access flag for local adapters
+  allowRemote: Joi.boolean().default(false),
+  
+  // Header rewriting for proxy adapters
+  headerRewrites: Joi.object().pattern(Joi.string(), Joi.string()),
+  removeHeaders: Joi.array().items(Joi.string().trim()),
 });
 
 const createProvider = {

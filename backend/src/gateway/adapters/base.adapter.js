@@ -21,10 +21,23 @@ class BaseAdapter {
    * @param {Object} params.options - Chat options (max_tokens, temperature, etc.)
    * @param {Object} params.requestMeta - Request metadata (requestId, etc.)
    * @param {AbortSignal} params.signal - Cancellation signal
-   * @returns {Promise<Object>} - Chat completion response
+   * @param {boolean} params.stream - Whether to stream the response
+   * @returns {Promise<Object|AsyncGenerator>} - Chat completion response or stream
    */
-  async handleChat({ messages, options, requestMeta, signal }) {
+  async handleChat({ messages, options, requestMeta, signal, stream = false }) {
     throw new Error('handleChat method must be implemented by subclass');
+  }
+
+  /**
+   * Handle streaming chat completion request
+   * @param {Object} params - Chat parameters (same as handleChat)
+   * @returns {AsyncGenerator} - Stream of chat completion chunks
+   */
+  async *handleChatStream({ messages, options, requestMeta, signal }) {
+    if (!this.supportsStreaming) {
+      throw new Error('Streaming not supported by this adapter');
+    }
+    throw new Error('handleChatStream method must be implemented by subclass');
   }
 
   /**
