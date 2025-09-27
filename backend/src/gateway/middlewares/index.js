@@ -1,10 +1,15 @@
 /**
  * Gateway Middlewares Index
  * Exports all gateway middleware modules
- * 
- * Middlewares will be implemented in future tasks
  */
 
+const apiKeyAuth = require('./apiKeyAuth');
+const requestLogger = require('./requestLogger');
+const { gatewayRateLimit, apiKeyRateLimit } = require('./gatewayRateLimit');
+
 module.exports = {
-  // Placeholder for future middleware exports
+  apiKeyAuth,
+  requestLogger,
+  gatewayRateLimit,
+  apiKeyRateLimit,
 };
