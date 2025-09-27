@@ -5,7 +5,7 @@ const docsRoute = require('./docs.route');
 const config = require('../../config/config');
 
 // Import gateway routes
-const { v1Routes: gatewayRoutes } = require('../../gateway/routes');
+const { v1Routes: gatewayRoutes, adminRoutes: gatewayAdminRoutes } = require('../../gateway/routes');
 
 const router = express.Router();
 
@@ -25,6 +25,10 @@ const gatewayRoutesConfig = [
   {
     path: '/',
     route: gatewayRoutes,
+  },
+  {
+    path: '/admin',
+    route: gatewayAdminRoutes,
   },
 ];
 

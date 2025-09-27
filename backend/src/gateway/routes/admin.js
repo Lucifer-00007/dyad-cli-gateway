@@ -2,7 +2,7 @@ const express = require('express');
 const auth = require('../../middlewares/auth');
 const validate = require('../../middlewares/validate');
 const { adminController } = require('../controllers');
-const { providerValidation } = require('../validations');
+const { providerValidation, apikeyValidation, circuitBreakerValidation, fallbackPolicyValidation } = require('../validations');
 const { requestLogger, errorConverter, errorHandler } = require('../middlewares');
 
 const router = express.Router();
@@ -36,6 +36,49 @@ router.post('/providers/:providerId/test', validate(providerValidation.testProvi
 
 // Provider health check endpoint
 router.post('/providers/:providerId/health', validate(providerValidation.checkProviderHealth), adminController.checkProviderHealth);
+
+// Provider credential rotation endpoint
+router.post('/providers/:providerId/rotate-credentials', validate(providerValidation.rotateProviderCredentials), adminController.rotateProviderCredentials);
+
+// API Key management routes
+router
+  .route('/apikeys')
+  .get(validate(apikeyValidation.getApiKeys), adminController.getApiKeys)
+  .post(validate(apikeyValidation.createApiKey), adminController.createApiKey);
+
+router
+  .route('/apikeys/:apiKeyId')
+  .get(validate(apikeyValidation.getApiKey), adminController.getApiKey)
+  .patch(validate(apikeyValidation.updateApiKey), adminController.updateApiKey)
+  .delete(validate(apikeyValidation.deleteApiKey), adminController.deleteApiKey);
+
+// API Key revocation endpoint
+router.post('/apikeys/:apiKeyId/revoke', validate(apikeyValidation.revokeApiKey), adminController.revokeApiKey);
+
+// API Key regeneration endpoint
+router.post('/apikeys/:apiKeyId/regenerate', validate(apikeyValidation.regenerateApiKey), adminController.regenerateApiKey);
+
+// Circuit breaker management routes
+router.get('/circuit-breakers', adminController.getCircuitBreakerStatus);
+router.get('/circuit-breakers/:providerId', validate(circuitBreakerValidation.getProviderCircuitBreakerStatus), adminController.getProviderCircuitBreakerStatus);
+router.post('/circuit-breakers/:providerId/reset', validate(circuitBreakerValidation.resetCircuitBreaker), adminController.resetCircuitBreaker);
+router.post('/circuit-breakers/:providerId/open', validate(circuitBreakerValidation.openCircuitBreaker), adminController.openCircuitBreaker);
+
+// Fallback policy management routes
+router.get('/fallback-policies', adminController.getFallbackPolicies);
+router.get('/fallback-policies/:modelId', validate(fallbackPolicyValidation.getFallbackPolicy), adminController.getFallbackPolicy);
+router.put('/fallback-policies/:modelId', validate(fallbackPolicyValidation.configureFallbackPolicy), adminController.configureFallbackPolicy);
+router.delete('/fallback-policies/:modelId', validate(fallbackPolicyValidation.removeFallbackPolicy), adminController.removeFallbackPolicy);
+
+// Provider priority management
+router.put('/provider-priorities', validate(fallbackPolicyValidation.setProviderPriorities), adminController.setProviderPriorities);
+
+// Health monitoring routes
+router.get('/health-monitor', adminController.getHealthMonitorStatus);
+router.post('/health-check', adminController.triggerHealthCheck);
+
+// Reliability statistics
+router.get('/reliability-stats', adminController.getReliabilityStatistics);
 
 // Error handling middleware
 router.use(errorConverter);

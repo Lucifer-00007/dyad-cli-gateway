@@ -362,6 +362,91 @@ class ProviderService {
   }
 
   /**
+   * Rotate provider credentials
+   * @param {string} providerId - Provider ID
+   * @param {Object} newCredentials - New credentials to set
+   * @returns {Promise<Object>} - Rotation result
+   */
+  async rotateProviderCredentials(providerId, newCredentials) {
+    try {
+      const provider = await Provider.findById(providerId);
+      if (!provider) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'Provider not found');
+      }
+
+      // Store old credentials for rollback if needed
+      const oldCredentials = provider.credentials;
+      const startTime = Date.now();
+
+      try {
+        // Update credentials
+        provider.credentials = new Map(Object.entries(newCredentials));
+        await provider.save();
+
+        // Test connectivity with new credentials
+        const testResult = await this.testProvider(providerId, { dryRun: false });
+        
+        if (testResult.status === 'failed') {
+          // Rollback on test failure
+          provider.credentials = oldCredentials;
+          await provider.save();
+          
+          throw new ApiError(httpStatus.BAD_REQUEST, `Credential rotation failed: ${testResult.message}`);
+        }
+
+        // Update health status
+        await provider.updateHealthStatus('healthy');
+
+        logger.info('Provider credentials rotated successfully', {
+          providerId,
+          providerName: provider.name,
+          testStatus: testResult.status,
+          duration: Date.now() - startTime
+        });
+
+        return {
+          status: 'success',
+          message: 'Credentials rotated successfully',
+          providerId: providerId.toString(),
+          providerName: provider.name,
+          testResult: {
+            status: testResult.status,
+            responseTime: testResult.duration
+          },
+          timestamp: new Date().toISOString(),
+          duration: Date.now() - startTime
+        };
+
+      } catch (rotationError) {
+        // Rollback credentials on any error
+        try {
+          provider.credentials = oldCredentials;
+          await provider.save();
+          await provider.updateHealthStatus('unhealthy', 'Credential rotation failed');
+        } catch (rollbackError) {
+          logger.error('Failed to rollback credentials after rotation failure', {
+            providerId,
+            rollbackError: rollbackError.message
+          });
+        }
+
+        throw rotationError;
+      }
+
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      logger.error('Failed to rotate provider credentials', { 
+        providerId, 
+        error: error.message,
+        stack: error.stack 
+      });
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to rotate provider credentials');
+    }
+  }
+
+  /**
    * Validate adapter configuration
    * @param {string} type - Adapter type
    * @param {Object} adapterConfig - Adapter configuration

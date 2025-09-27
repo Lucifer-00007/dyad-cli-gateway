@@ -107,7 +107,7 @@
   - **AC**: Streams tokens in real-time, handles client disconnect, kills running processes on cancel
   - _Requirements: 1.1 streaming support_
 
-- [ ] 14. Implement credential rotation and revocation
+- [x] 14. Implement credential rotation and revocation
   - Add POST /admin/providers/:id/rotate-credentials endpoint
   - Add POST /admin/apikeys/:id/revoke endpoint
   - Implement zero-downtime credential rotation workflow
@@ -115,7 +115,7 @@
   - **AC**: Credentials rotate without service interruption, revoked keys immediately invalid
   - _Requirements: 2.6, 5.1_
 
-- [ ] 15. Add circuit breaker and fallback policies
+- [x] 15. Add circuit breaker and fallback policies
   - Implement circuit breaker pattern for failing providers
   - Add configurable fallback policies and thresholds
   - Create background jobs for provider health monitoring

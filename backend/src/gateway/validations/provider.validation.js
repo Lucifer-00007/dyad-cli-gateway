@@ -136,6 +136,16 @@ const checkProviderHealth = {
   }),
 };
 
+const rotateProviderCredentials = {
+  params: Joi.object({
+    providerId: Joi.string().required().pattern(/^[0-9a-fA-F]{24}$/),
+  }),
+  body: Joi.object({
+    credentials: Joi.object().pattern(Joi.string(), Joi.string()).min(1).required(),
+    reason: Joi.string().trim().max(500).default('Manual rotation'),
+  }),
+};
+
 module.exports = {
   createProvider,
   updateProvider,
@@ -144,4 +154,5 @@ module.exports = {
   getProviders,
   testProvider,
   checkProviderHealth,
+  rotateProviderCredentials,
 };

@@ -8,6 +8,9 @@ const { gatewayConfig } = require('../config');
 const { AdapterFactory } = require('../adapters');
 const Provider = require('../../models/provider.model');
 const OpenAINormalizer = require('./openai.normalizer');
+const { CircuitBreakerService } = require('./circuit-breaker.service');
+const { FallbackPolicyService } = require('./fallback-policy.service');
+const HealthMonitorService = require('./health-monitor.service');
 const crypto = require('crypto');
 
 class GatewayService {
@@ -19,6 +22,11 @@ class GatewayService {
     this.providerCache = new Map(); // Cache for provider lookups
     this.modelCache = new Map(); // Cache for model listings
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    
+    // Circuit breaker and fallback services
+    this.circuitBreakerService = new CircuitBreakerService();
+    this.fallbackPolicyService = new FallbackPolicyService(this.circuitBreakerService);
+    this.healthMonitorService = new HealthMonitorService(this.circuitBreakerService);
   }
 
   /**
@@ -65,73 +73,78 @@ class GatewayService {
     });
 
     try {
-      // Find provider for the requested model
-      const provider = await this.findProviderForModel(model);
-      if (!provider) {
-        throw new Error(`No provider found for model: ${model}`);
-      }
+      // Use fallback policy to execute request
+      const requestFn = async (providerId) => {
+        const provider = await Provider.findById(providerId);
+        if (!provider) {
+          throw new Error(`Provider not found: ${providerId}`);
+        }
 
-      // Get model mapping
-      const modelMapping = provider.getModelMapping(model);
-      if (!modelMapping) {
-        throw new Error(`Model mapping not found for: ${model}`);
-      }
+        // Get model mapping
+        const modelMapping = provider.getModelMapping(model);
+        if (!modelMapping) {
+          throw new Error(`Model mapping not found for: ${model}`);
+        }
 
-      // Create adapter instance
-      const adapter = this.adapterFactory.createAdapter(provider, provider.credentials);
+        // Create adapter instance
+        const adapter = this.adapterFactory.createAdapter(provider, provider.credentials);
 
-      // Check if streaming is supported
-      if (stream && !adapter.supportsStreaming) {
-        logger.warn('Streaming requested but not supported by adapter, falling back to non-streaming', {
+        // Check if streaming is supported
+        if (stream && !adapter.supportsStreaming) {
+          logger.warn('Streaming requested but not supported by adapter, falling back to non-streaming', {
+            requestId,
+            model,
+            providerId: provider._id
+          });
+          stream = false;
+        }
+
+        // Prepare adapter request
+        const adapterRequest = {
+          messages,
+          options: {
+            ...options,
+            max_tokens: options.max_tokens || modelMapping.maxTokens,
+            model: modelMapping.adapterModelId
+          },
+          requestMeta: {
+            ...requestMeta,
+            requestId,
+            providerId: provider._id,
+            providerName: provider.name
+          },
+          signal,
+          stream
+        };
+
+        if (stream) {
+          // Return streaming generator
+          return this.handleChatCompletionStream(adapter, adapterRequest, model, provider);
+        }
+
+        // Execute adapter request
+        const adapterResponse = await adapter.handleChat(adapterRequest);
+
+        // Normalize response to OpenAI format
+        const normalizedResponse = this.normalizer.normalizeChatResponse(
+          adapterResponse,
+          model,
+          requestId,
+          provider
+        );
+
+        logger.info('Chat completion request completed', {
           requestId,
           model,
-          providerId: provider._id
-        });
-        stream = false;
-      }
-
-      // Prepare adapter request
-      const adapterRequest = {
-        messages,
-        options: {
-          ...options,
-          max_tokens: options.max_tokens || modelMapping.maxTokens,
-          model: modelMapping.adapterModelId
-        },
-        requestMeta: {
-          ...requestMeta,
-          requestId,
           providerId: provider._id,
-          providerName: provider.name
-        },
-        signal,
-        stream
+          tokensUsed: normalizedResponse.usage?.total_tokens || 0
+        });
+
+        return normalizedResponse;
       };
 
-      if (stream) {
-        // Return streaming generator
-        return this.handleChatCompletionStream(adapter, adapterRequest, model, provider);
-      }
-
-      // Execute adapter request
-      const adapterResponse = await adapter.handleChat(adapterRequest);
-
-      // Normalize response to OpenAI format
-      const normalizedResponse = this.normalizer.normalizeChatResponse(
-        adapterResponse,
-        model,
-        requestId,
-        provider
-      );
-
-      logger.info('Chat completion request completed', {
-        requestId,
-        model,
-        providerId: provider._id,
-        tokensUsed: normalizedResponse.usage?.total_tokens || 0
-      });
-
-      return normalizedResponse;
+      // Execute with fallback policy
+      return await this.fallbackPolicyService.executeWithFallback(model, requestFn);
 
     } catch (error) {
       logger.error('Chat completion request failed', {
@@ -331,7 +344,10 @@ class GatewayService {
       // Check cache first
       const cached = this.providerCache.get(modelId);
       if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-        return cached.provider;
+        // Filter out providers with open circuit breakers
+        if (this.circuitBreakerService.isProviderHealthy(cached.provider._id.toString())) {
+          return cached.provider;
+        }
       }
 
       // Find providers that support this model
@@ -341,9 +357,16 @@ class GatewayService {
         return null;
       }
 
-      // For now, return the first healthy provider
-      // TODO: Implement load balancing and circuit breaker logic
-      const provider = providers.find(p => p.healthStatus.status === 'healthy') || providers[0];
+      // Filter providers by circuit breaker status and health
+      const healthyProviders = providers.filter(p => {
+        const providerId = p._id.toString();
+        const circuitHealthy = this.circuitBreakerService.isProviderHealthy(providerId);
+        const providerHealthy = p.healthStatus.status === 'healthy';
+        return circuitHealthy && providerHealthy;
+      });
+
+      // Return first healthy provider, or first available if none are healthy
+      const provider = healthyProviders.length > 0 ? healthyProviders[0] : providers[0];
 
       // Cache the result
       this.providerCache.set(modelId, {
@@ -394,6 +417,9 @@ class GatewayService {
     // Initialize normalizer
     await this.normalizer.initialize();
     
+    // Start health monitoring
+    this.healthMonitorService.start();
+    
     logger.debug('Gateway components initialized');
   }
 
@@ -409,6 +435,140 @@ class GatewayService {
    */
   getConfig() {
     return this.config;
+  }
+
+  /**
+   * Configure fallback policy for a model
+   * @param {string} modelId - Model ID
+   * @param {Object} config - Fallback configuration
+   */
+  configureFallbackPolicy(modelId, config) {
+    this.fallbackPolicyService.configureFallback(modelId, config);
+  }
+
+  /**
+   * Set provider priorities for fallback
+   * @param {Object} priorities - Map of provider ID to priority
+   */
+  setProviderPriorities(priorities) {
+    this.fallbackPolicyService.setProviderPriorities(priorities);
+  }
+
+  /**
+   * Get circuit breaker status for all providers
+   * @returns {Object}
+   */
+  getCircuitBreakerStatus() {
+    return this.circuitBreakerService.getAllStatus();
+  }
+
+  /**
+   * Get circuit breaker status for specific provider
+   * @param {string} providerId - Provider ID
+   * @returns {Object|null}
+   */
+  getProviderCircuitBreakerStatus(providerId) {
+    return this.circuitBreakerService.getStatus(providerId);
+  }
+
+  /**
+   * Reset circuit breaker for provider
+   * @param {string} providerId - Provider ID
+   */
+  resetCircuitBreaker(providerId) {
+    this.circuitBreakerService.resetCircuitBreaker(providerId);
+  }
+
+  /**
+   * Open circuit breaker for provider
+   * @param {string} providerId - Provider ID
+   */
+  openCircuitBreaker(providerId) {
+    this.circuitBreakerService.openCircuitBreaker(providerId);
+  }
+
+  /**
+   * Get fallback configuration for model
+   * @param {string} modelId - Model ID
+   * @returns {Object|null}
+   */
+  getFallbackConfig(modelId) {
+    return this.fallbackPolicyService.getFallbackConfig(modelId);
+  }
+
+  /**
+   * Get all fallback configurations
+   * @returns {Object}
+   */
+  getAllFallbackConfigs() {
+    return this.fallbackPolicyService.getAllFallbackConfigs();
+  }
+
+  /**
+   * Remove fallback configuration for model
+   * @param {string} modelId - Model ID
+   */
+  removeFallbackConfig(modelId) {
+    this.fallbackPolicyService.removeFallbackConfig(modelId);
+  }
+
+  /**
+   * Get health monitor status
+   * @returns {Object}
+   */
+  getHealthMonitorStatus() {
+    return this.healthMonitorService.getStatus();
+  }
+
+  /**
+   * Manually trigger health check for provider
+   * @param {string} providerId - Provider ID
+   * @returns {Promise<Object>}
+   */
+  async checkProviderHealth(providerId) {
+    return this.healthMonitorService.checkProvider(providerId);
+  }
+
+  /**
+   * Manually trigger health check for all providers
+   * @returns {Promise<Object[]>}
+   */
+  async checkAllProvidersHealth() {
+    return this.healthMonitorService.checkAllProviders();
+  }
+
+  /**
+   * Get circuit breaker and fallback statistics
+   * @returns {Object}
+   */
+  getReliabilityStatistics() {
+    return {
+      circuitBreaker: this.circuitBreakerService.getStatistics(),
+      fallbackPolicy: this.fallbackPolicyService.getStatistics(),
+      healthMonitor: this.healthMonitorService.getStatistics()
+    };
+  }
+
+  /**
+   * Shutdown gateway services
+   */
+  async shutdown() {
+    logger.info('Shutting down gateway services...');
+    
+    // Stop health monitoring
+    this.healthMonitorService.stop();
+    
+    // Clear caches
+    this.clearCaches();
+    
+    // Clear circuit breakers
+    this.circuitBreakerService.clearAll();
+    
+    // Clear fallback policies
+    this.fallbackPolicyService.clearAll();
+    
+    this.initialized = false;
+    logger.info('Gateway services shut down');
   }
 }
 
