@@ -4,6 +4,7 @@
 
 const AdapterFactory = require('../../../../src/gateway/adapters/adapter.factory');
 const SpawnCliAdapter = require('../../../../src/gateway/adapters/spawn-cli.adapter');
+const HttpSdkAdapter = require('../../../../src/gateway/adapters/http-sdk.adapter');
 const BaseAdapter = require('../../../../src/gateway/adapters/base.adapter');
 
 // Mock the logger to avoid console output during tests
@@ -40,6 +41,23 @@ describe('AdapterFactory', () => {
       expect(adapter.providerConfig).toBe(validProvider.adapterConfig);
     });
 
+    it('should create HttpSdkAdapter for http-sdk type', () => {
+      const httpProvider = {
+        id: 'test-http-provider',
+        name: 'Test HTTP Provider',
+        type: 'http-sdk',
+        adapterConfig: {
+          baseUrl: 'https://api.example.com',
+          chatEndpoint: '/v1/chat/completions'
+        }
+      };
+      
+      const adapter = factory.createAdapter(httpProvider);
+      
+      expect(adapter).toBeInstanceOf(HttpSdkAdapter);
+      expect(adapter.providerConfig).toBe(httpProvider.adapterConfig);
+    });
+
     it('should pass credentials to adapter', () => {
       const credentials = { api_key: 'test-key' };
       const adapter = factory.createAdapter(validProvider, credentials);
@@ -66,7 +84,7 @@ describe('AdapterFactory', () => {
 
       expect(() => {
         factory.createAdapter(unknownProvider);
-      }).toThrow('Unknown adapter type: unknown-type. Available types: spawn-cli');
+      }).toThrow('Unknown adapter type: unknown-type. Available types: spawn-cli, http-sdk');
     });
 
     it('should throw error for invalid adapter configuration', () => {
@@ -90,6 +108,7 @@ describe('AdapterFactory', () => {
       
       expect(Array.isArray(types)).toBe(true);
       expect(types).toContain('spawn-cli');
+      expect(types).toContain('http-sdk');
     });
   });
 
@@ -144,6 +163,7 @@ describe('AdapterFactory', () => {
   describe('isSupported', () => {
     it('should return true for supported adapter type', () => {
       expect(factory.isSupported('spawn-cli')).toBe(true);
+      expect(factory.isSupported('http-sdk')).toBe(true);
     });
 
     it('should return false for unsupported adapter type', () => {
