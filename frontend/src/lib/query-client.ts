@@ -126,7 +126,7 @@ export const persistOptions = {
   maxAge: config.cache.maxAge,
   hydrateOptions: {
     // Only persist certain query types
-    dehydrateQuery: (query: any) => {
+    dehydrateQuery: (query: unknown) => {
       const queryKey = query.queryKey[0];
       // Persist providers, models, and system info
       return ['providers', 'models', 'system-info'].includes(queryKey);
@@ -149,7 +149,7 @@ export const queryKeys = {
   providers: {
     all: ['providers'] as const,
     lists: () => [...queryKeys.providers.all, 'list'] as const,
-    list: (filters?: any) => [...queryKeys.providers.lists(), filters] as const,
+    list: (filters?: unknown) => [...queryKeys.providers.lists(), filters] as const,
     details: () => [...queryKeys.providers.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.providers.details(), id] as const,
     health: (id: string) => [...queryKeys.providers.detail(id), 'health'] as const,
@@ -167,14 +167,14 @@ export const queryKeys = {
     all: ['system'] as const,
     health: () => [...queryKeys.system.all, 'health'] as const,
     metrics: () => [...queryKeys.system.all, 'metrics'] as const,
-    logs: (filters?: any) => [...queryKeys.system.all, 'logs', filters] as const,
+    logs: (filters?: unknown) => [...queryKeys.system.all, 'logs', filters] as const,
   },
   
   // API key queries
   apiKeys: {
     all: ['api-keys'] as const,
     lists: () => [...queryKeys.apiKeys.all, 'list'] as const,
-    list: (filters?: any) => [...queryKeys.apiKeys.lists(), filters] as const,
+    list: (filters?: unknown) => [...queryKeys.apiKeys.lists(), filters] as const,
     details: () => [...queryKeys.apiKeys.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.apiKeys.details(), id] as const,
     usage: (id: string) => [...queryKeys.apiKeys.detail(id), 'usage'] as const,
@@ -201,21 +201,21 @@ export const queryKeys = {
 // Optimistic update helpers
 export const optimisticUpdateHelpers = {
   // Provider optimistic updates
-  updateProvider: (providerId: string, updates: any) => {
+  updateProvider: (providerId: string, updates: unknown) => {
     queryClient.setQueryData(
       queryKeys.providers.detail(providerId),
-      (oldData: any) => oldData ? { ...oldData, ...updates } : oldData
+      (oldData: unknown) => oldData ? { ...oldData, ...updates } : oldData
     );
     
     // Update in lists as well
     queryClient.setQueriesData(
       { queryKey: queryKeys.providers.lists() },
-      (oldData: any) => {
+      (oldData: unknown) => {
         if (!oldData?.results) return oldData;
         
         return {
           ...oldData,
-          results: oldData.results.map((provider: any) =>
+          results: oldData.results.map((provider: unknown) =>
             provider.id === providerId ? { ...provider, ...updates } : provider
           ),
         };
@@ -224,10 +224,10 @@ export const optimisticUpdateHelpers = {
   },
   
   // Add provider optimistically
-  addProvider: (newProvider: any) => {
+  addProvider: (newProvider: unknown) => {
     queryClient.setQueriesData(
       { queryKey: queryKeys.providers.lists() },
-      (oldData: any) => {
+      (oldData: unknown) => {
         if (!oldData?.results) return oldData;
         
         return {
@@ -243,12 +243,12 @@ export const optimisticUpdateHelpers = {
   removeProvider: (providerId: string) => {
     queryClient.setQueriesData(
       { queryKey: queryKeys.providers.lists() },
-      (oldData: any) => {
+      (oldData: unknown) => {
         if (!oldData?.results) return oldData;
         
         return {
           ...oldData,
-          results: oldData.results.filter((provider: any) => provider.id !== providerId),
+          results: oldData.results.filter((provider: unknown) => provider.id !== providerId),
           totalResults: oldData.totalResults - 1,
         };
       }

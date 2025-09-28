@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 export interface AccessibleListProps<T> {
   items: T[];
   onSelect: (item: T, index: number) => void;
-  renderItem: (item: T, index: number, props: any) => React.ReactNode;
+  renderItem: (item: T, index: number, props: unknown) => React.ReactNode;
   orientation?: 'horizontal' | 'vertical';
   loop?: boolean;
   className?: string;
@@ -140,7 +140,7 @@ export const AccessibleMenuItem = forwardRef<HTMLDivElement, AccessibleMenuItemP
           className
         )}
         onClick={handleClick}
-        onKeyDown={handleKeyDown as any}
+        onKeyDown={handleKeyDown as React.KeyboardEventHandler<HTMLDivElement>}
       >
         <span>{children}</span>
         {shortcut && (

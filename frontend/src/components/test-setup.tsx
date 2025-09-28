@@ -173,7 +173,7 @@ export const TestSetup: React.FC = () => {
         <Button 
           onClick={() => {
             // Clear query cache for testing
-            window.location.href = window.location.href;
+            window.location.reload();
           }}
           variant="outline"
         >

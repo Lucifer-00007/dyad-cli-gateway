@@ -2,7 +2,7 @@
  * Authentication context with secure token management
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { authManager } from '@/lib/api-client';
 
 interface User {
@@ -38,9 +38,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize auth state on mount
   useEffect(() => {
     initializeAuth();
-  }, []);
+  }, [initializeAuth]);
 
-  const initializeAuth = async () => {
+  const initializeAuth = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } else if (response.status === 401) {
         // Try to refresh the token
-        await refreshToken();
+        await authManager.refreshToken();
       }
     } catch (error) {
       console.warn('Failed to initialize auth:', error);
@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {

@@ -12,7 +12,7 @@ export interface ApiKeyFormData {
   expiresAt?: Date;
   allowedProviders?: string[];
   allowedModels?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ApiKeyPermission {
@@ -72,7 +72,7 @@ export interface ApiKeyAuditLog {
     newValues?: Partial<ApiKey>;
     requestPath?: string;
     errorMessage?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
 }
 

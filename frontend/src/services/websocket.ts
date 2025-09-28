@@ -14,7 +14,7 @@ export type WebSocketEventType =
   | 'error_occurred'
   | 'connection_status';
 
-export interface WebSocketEvent<T = any> {
+export interface WebSocketEvent<T = unknown> {
   type: WebSocketEventType;
   data: T;
   timestamp: string;
@@ -28,7 +28,7 @@ export interface WebSocketConnectionStatus {
   reconnectAttempts: number;
 }
 
-export type WebSocketEventHandler<T = any> = (event: WebSocketEvent<T>) => void;
+export type WebSocketEventHandler<T = unknown> = (event: WebSocketEvent<T>) => void;
 
 export class WebSocketService {
   private ws: WebSocket | null = null;
@@ -92,7 +92,7 @@ export class WebSocketService {
   /**
    * Subscribe to specific event type
    */
-  on<T = any>(eventType: WebSocketEventType, handler: WebSocketEventHandler<T>): () => void {
+  on<T = unknown>(eventType: WebSocketEventType, handler: WebSocketEventHandler<T>): () => void {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, new Set());
     }
@@ -122,7 +122,7 @@ export class WebSocketService {
   /**
    * Send message to server
    */
-  send(message: any): void {
+  send(message: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
@@ -246,13 +246,13 @@ export const webSocketService = new WebSocketService();
 
 // Convenience hooks for common events
 export const createWebSocketHooks = () => ({
-  useProviderStatusUpdates: (callback: (data: any) => void) => 
+  useProviderStatusUpdates: (callback: (data: unknown) => void) => 
     webSocketService.on('provider_status_changed', callback),
   
-  useSystemMetricsUpdates: (callback: (data: any) => void) => 
+  useSystemMetricsUpdates: (callback: (data: unknown) => void) => 
     webSocketService.on('system_metrics_updated', callback),
   
-  useLogUpdates: (callback: (data: any) => void) => 
+  useLogUpdates: (callback: (data: unknown) => void) => 
     webSocketService.on('new_log_entry', callback),
   
   useConnectionStatus: (callback: (status: WebSocketConnectionStatus) => void) => 

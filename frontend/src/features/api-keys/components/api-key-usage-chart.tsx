@@ -61,7 +61,7 @@ export const ApiKeyUsageChart: React.FC<ApiKeyUsageChartProps> = ({
         break;
       case '7d':
       case '30d':
-      case '90d':
+      case '90d': {
         const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
         intervals = eachDayOfInterval({
           start: subDays(now, days),
@@ -69,6 +69,7 @@ export const ApiKeyUsageChart: React.FC<ApiKeyUsageChartProps> = ({
         });
         formatString = 'MMM d';
         break;
+      }
     }
 
     // Create mock time-series data (in real implementation, this would come from the API)
@@ -100,7 +101,7 @@ export const ApiKeyUsageChart: React.FC<ApiKeyUsageChartProps> = ({
           acc[`key_${keyIndex}`] = keyValue;
           acc[`key_${keyIndex}_name`] = key.keyId;
           return acc;
-        }, {} as Record<string, any>),
+        }, {} as Record<string, unknown>),
       };
     });
   }, [data, metric, timeRange]);

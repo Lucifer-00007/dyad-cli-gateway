@@ -38,7 +38,7 @@ export const useStreamingChat = () => {
       signal,
     }: {
       request: ChatCompletionRequest;
-      onChunk: (chunk: any) => void;
+      onChunk: (chunk: unknown) => void;
       signal?: AbortSignal;
     }) => {
       return ChatService.sendStreamingChatCompletion(request, onChunk, signal);

@@ -7,7 +7,7 @@ import { apiClient, handleApiError } from './api-client';
 import type { AxiosRequestConfig } from 'axios';
 
 // Base API client interface
-export interface ApiClientMethod<TRequest = any, TResponse = any> {
+export interface ApiClientMethod<TRequest = unknown, TResponse = unknown> {
   (data?: TRequest, config?: AxiosRequestConfig): Promise<TResponse>;
 }
 
@@ -33,7 +33,7 @@ export interface ApiClientConfig {
 /**
  * Create a typed API method from endpoint configuration
  */
-export function createApiMethod<TRequest = any, TResponse = any>(
+export function createApiMethod<TRequest = unknown, TResponse = unknown>(
   endpoint: ApiEndpoint,
   config?: ApiClientConfig
 ): ApiClientMethod<TRequest, TResponse> {
@@ -94,25 +94,25 @@ export class ApiClientGenerator {
     return {
       // Provider endpoints
       providers: {
-        list: createApiMethod<any, any>({
+        list: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/providers',
           authenticated: true,
         }, this.config),
         
-        get: createApiMethod<{ id: string }, any>({
+        get: createApiMethod<{ id: string }, unknown>({
           method: 'GET',
           path: '/admin/providers/{id}',
           authenticated: true,
         }, this.config),
         
-        create: createApiMethod<any, any>({
+        create: createApiMethod<unknown, unknown>({
           method: 'POST',
           path: '/admin/providers',
           authenticated: true,
         }, this.config),
         
-        update: createApiMethod<{ id: string; data: any }, any>({
+        update: createApiMethod<{ id: string; data: unknown }, unknown>({
           method: 'PATCH',
           path: '/admin/providers/{id}',
           authenticated: true,
@@ -124,13 +124,13 @@ export class ApiClientGenerator {
           authenticated: true,
         }, this.config),
         
-        test: createApiMethod<{ id: string; dryRun?: boolean }, any>({
+        test: createApiMethod<{ id: string; dryRun?: boolean }, unknown>({
           method: 'POST',
           path: '/admin/providers/{id}/test',
           authenticated: true,
         }, this.config),
         
-        health: createApiMethod<{ id: string }, any>({
+        health: createApiMethod<{ id: string }, unknown>({
           method: 'POST',
           path: '/admin/providers/{id}/health',
           authenticated: true,
@@ -139,25 +139,25 @@ export class ApiClientGenerator {
 
       // API Key endpoints
       apiKeys: {
-        list: createApiMethod<any, any>({
+        list: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/api-keys',
           authenticated: true,
         }, this.config),
         
-        get: createApiMethod<{ id: string }, any>({
+        get: createApiMethod<{ id: string }, unknown>({
           method: 'GET',
           path: '/admin/api-keys/{id}',
           authenticated: true,
         }, this.config),
         
-        create: createApiMethod<any, any>({
+        create: createApiMethod<unknown, unknown>({
           method: 'POST',
           path: '/admin/api-keys',
           authenticated: true,
         }, this.config),
         
-        update: createApiMethod<{ id: string; data: any }, any>({
+        update: createApiMethod<{ id: string; data: unknown }, unknown>({
           method: 'PATCH',
           path: '/admin/api-keys/{id}',
           authenticated: true,
@@ -169,19 +169,19 @@ export class ApiClientGenerator {
           authenticated: true,
         }, this.config),
         
-        revoke: createApiMethod<{ id: string }, any>({
+        revoke: createApiMethod<{ id: string }, unknown>({
           method: 'POST',
           path: '/admin/api-keys/{id}/revoke',
           authenticated: true,
         }, this.config),
         
-        regenerate: createApiMethod<{ id: string }, any>({
+        regenerate: createApiMethod<{ id: string }, unknown>({
           method: 'POST',
           path: '/admin/api-keys/{id}/regenerate',
           authenticated: true,
         }, this.config),
         
-        usage: createApiMethod<{ id: string; timeRange?: any }, any>({
+        usage: createApiMethod<{ id: string; timeRange?: string }, unknown>({
           method: 'GET',
           path: '/admin/api-keys/{id}/usage',
           authenticated: true,
@@ -190,43 +190,43 @@ export class ApiClientGenerator {
 
       // Metrics endpoints
       metrics: {
-        system: createApiMethod<{ timeRange?: any }, any>({
+        system: createApiMethod<{ timeRange?: string }, unknown>({
           method: 'GET',
           path: '/admin/metrics',
           authenticated: true,
         }, this.config),
         
-        timeseries: createApiMethod<any, any>({
+        timeseries: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/metrics/timeseries',
           authenticated: true,
         }, this.config),
         
-        providers: createApiMethod<any, any>({
+        providers: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/metrics/providers',
           authenticated: true,
         }, this.config),
         
-        models: createApiMethod<any, any>({
+        models: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/metrics/models',
           authenticated: true,
         }, this.config),
         
-        errors: createApiMethod<any, any>({
+        errors: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/metrics/errors',
           authenticated: true,
         }, this.config),
         
-        realtime: createApiMethod<void, any>({
+        realtime: createApiMethod<void, unknown>({
           method: 'GET',
           path: '/admin/metrics/realtime',
           authenticated: true,
         }, this.config),
         
-        export: createApiMethod<any, Blob>({
+        export: createApiMethod<unknown, Blob>({
           method: 'GET',
           path: '/admin/metrics/export/{type}',
           authenticated: true,
@@ -235,31 +235,31 @@ export class ApiClientGenerator {
 
       // System endpoints
       system: {
-        health: createApiMethod<void, any>({
+        health: createApiMethod<void, unknown>({
           method: 'GET',
           path: '/health',
           authenticated: false,
         }, this.config),
         
-        readiness: createApiMethod<void, any>({
+        readiness: createApiMethod<void, unknown>({
           method: 'GET',
           path: '/ready',
           authenticated: false,
         }, this.config),
         
-        status: createApiMethod<void, any>({
+        status: createApiMethod<void, unknown>({
           method: 'GET',
           path: '/admin/status',
           authenticated: true,
         }, this.config),
         
-        logs: createApiMethod<any, any>({
+        logs: createApiMethod<unknown, unknown>({
           method: 'GET',
           path: '/admin/logs',
           authenticated: true,
         }, this.config),
         
-        export: createApiMethod<any, Blob>({
+        export: createApiMethod<unknown, Blob>({
           method: 'POST',
           path: '/admin/export',
           authenticated: true,
@@ -286,7 +286,7 @@ export class ApiClientGenerator {
   createV1Client() {
     return {
       models: {
-        list: createApiMethod<void, any>({
+        list: createApiMethod<void, unknown>({
           method: 'GET',
           path: '/v1/models',
           authenticated: true,
@@ -294,7 +294,7 @@ export class ApiClientGenerator {
       },
 
       chat: {
-        completions: createApiMethod<any, any>({
+        completions: createApiMethod<unknown, unknown>({
           method: 'POST',
           path: '/v1/chat/completions',
           authenticated: true,
@@ -302,7 +302,7 @@ export class ApiClientGenerator {
       },
 
       embeddings: {
-        create: createApiMethod<any, any>({
+        create: createApiMethod<unknown, unknown>({
           method: 'POST',
           path: '/v1/embeddings',
           authenticated: true,
@@ -339,14 +339,14 @@ export const createTypedApiClient = (config?: ApiClientConfig) => {
 // Request/Response interceptor utilities
 export const createRequestInterceptor = (
   onRequest?: (config: AxiosRequestConfig) => AxiosRequestConfig,
-  onError?: (error: any) => Promise<any>
+  onError?: (error: unknown) => Promise<unknown>
 ) => {
   return apiClient.interceptors.request.use(onRequest, onError);
 };
 
 export const createResponseInterceptor = (
-  onResponse?: (response: any) => any,
-  onError?: (error: any) => Promise<any>
+  onResponse?: (response: unknown) => unknown,
+  onError?: (error: unknown) => Promise<unknown>
 ) => {
   return apiClient.interceptors.response.use(onResponse, onError);
 };
@@ -356,15 +356,15 @@ export interface BatchRequest {
   id: string;
   method: HttpMethod;
   path: string;
-  data?: any;
-  params?: any;
+  data?: unknown;
+  params?: unknown;
 }
 
-export interface BatchResponse<T = any> {
+export interface BatchResponse<T = unknown> {
   id: string;
   success: boolean;
   data?: T;
-  error?: any;
+  error?: unknown;
 }
 
 export const executeBatchRequests = async (

@@ -108,7 +108,7 @@ export class MetricsService {
     timeRange?: MetricsTimeRange
   ): Promise<ProviderMetrics[]> {
     try {
-      const params: any = {};
+      const params: unknown = {};
       
       if (providerId) {
         params.providerId = providerId;
@@ -134,7 +134,7 @@ export class MetricsService {
     timeRange?: MetricsTimeRange
   ): Promise<ModelMetrics[]> {
     try {
-      const params: any = {};
+      const params: unknown = {};
       
       if (modelId) {
         params.modelId = modelId;
@@ -245,7 +245,7 @@ export class MetricsService {
     timeRange?: MetricsTimeRange
   ): Promise<ModelMetrics[]> {
     try {
-      const params: any = { limit, sortBy };
+      const params: unknown = { limit, sortBy };
       
       if (timeRange) {
         params.start = timeRange.start.toISOString();
@@ -290,7 +290,7 @@ export class MetricsService {
     timeRange?: MetricsTimeRange
   ): Promise<Blob> {
     try {
-      const params: any = { format };
+      const params: unknown = { format };
       
       if (timeRange) {
         params.start = timeRange.start.toISOString();

@@ -218,7 +218,7 @@ export const ApiKeyPermissionsEditor: React.FC<ApiKeyPermissionsEditorProps> = (
                 className="pl-8"
               />
             </div>
-            <Tabs value={selectedCategory} onValueChange={(value: any) => setSelectedCategory(value)}>
+            <Tabs value={selectedCategory} onValueChange={(value: unknown) => setSelectedCategory(value)}>
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="read">Read</TabsTrigger>

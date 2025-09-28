@@ -184,7 +184,7 @@ export class ChatService {
       const saved = localStorage.getItem('dyad-conversations') || '[]';
       const conversations = JSON.parse(saved);
       
-      const existingIndex = conversations.findIndex((c: any) => c.id === conversation.id);
+      const existingIndex = conversations.findIndex((c: unknown) => c.id === conversation.id);
       if (existingIndex >= 0) {
         conversations[existingIndex] = { ...conversation, updatedAt: new Date().toISOString() };
       } else {
@@ -228,7 +228,7 @@ export class ChatService {
     try {
       const saved = localStorage.getItem('dyad-conversations') || '[]';
       const conversations = JSON.parse(saved);
-      const filtered = conversations.filter((c: any) => c.id !== conversationId);
+      const filtered = conversations.filter((c: unknown) => c.id !== conversationId);
       localStorage.setItem('dyad-conversations', JSON.stringify(filtered));
     } catch (error) {
       console.warn('Failed to delete conversation:', error);
@@ -246,20 +246,22 @@ export class ChatService {
       case 'json':
         return JSON.stringify(conversation, null, 2);
       
-      case 'markdown':
+      case 'markdown': {
         let markdown = `# ${conversation.name}\n\n`;
         conversation.messages.forEach(message => {
           markdown += `## ${message.role.charAt(0).toUpperCase() + message.role.slice(1)}\n\n`;
           markdown += `${message.content}\n\n`;
         });
         return markdown;
+      }
       
-      case 'txt':
+      case 'txt': {
         let text = `${conversation.name}\n${'='.repeat(conversation.name.length)}\n\n`;
         conversation.messages.forEach(message => {
           text += `${message.role.toUpperCase()}:\n${message.content}\n\n`;
         });
         return text;
+      }
       
       default:
         return JSON.stringify(conversation, null, 2);

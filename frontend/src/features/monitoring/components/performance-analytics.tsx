@@ -38,7 +38,7 @@ import { usePerformancePercentiles, useTopModels, useUsageTrends } from '@/hooks
 import { MonitoringTimeRange, PerformanceMetric } from '../types';
 
 interface PerformanceAnalyticsProps {
-  data: any;
+  data: unknown;
   timeRange: MonitoringTimeRange;
   isLoading: boolean;
 }
@@ -112,15 +112,15 @@ export const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = ({
     if (!data?.providers) return [];
     
     return data.providers
-      .filter((p: any) => p.metrics)
-      .map((provider: any) => ({
+      .filter((p: unknown) => p.metrics)
+      .map((provider: unknown) => ({
         name: provider.name,
         latency: provider.metrics.averageLatency,
         requests: provider.metrics.requests,
         errorRate: provider.metrics.errorRate,
         successRate: 100 - provider.metrics.errorRate,
       }))
-      .sort((a: any, b: any) => b.requests - a.requests)
+      .sort((a: unknown, b: unknown) => b.requests - a.requests)
       .slice(0, 10);
   }, [data?.providers]);
 

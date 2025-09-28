@@ -246,7 +246,7 @@ export const ApiKeyUsageAnalytics: React.FC<ApiKeyUsageAnalyticsProps> = ({
           <TabsContent value="usage" className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Usage Trends</h3>
-              <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
+              <Select value={selectedMetric} onValueChange={(value: unknown) => setSelectedMetric(value)}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>

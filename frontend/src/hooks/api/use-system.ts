@@ -83,7 +83,7 @@ export const useExportData = () => {
     }: {
       type: 'logs' | 'metrics' | 'providers';
       format: 'json' | 'csv';
-      filters?: any;
+      filters?: unknown;
     }) => SystemService.exportData(type, format, filters),
   });
 };

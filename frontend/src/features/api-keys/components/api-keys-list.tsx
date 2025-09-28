@@ -108,14 +108,14 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
   const columns = [
     {
       id: 'select',
-      header: ({ table }: any) => (
+      header: ({ table }: unknown) => (
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
         />
       ),
-      cell: ({ row }: any) => (
+      cell: ({ row }: unknown) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -128,7 +128,7 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
     {
       accessorKey: 'name',
       header: 'Name',
-      cell: ({ row }: any) => {
+      cell: ({ row }: unknown) => {
         const key = row.original as ApiKey;
         return (
           <div className="flex items-center space-x-2">
@@ -146,12 +146,12 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }: any) => getStatusBadge(row.original as ApiKey),
+      cell: ({ row }: unknown) => getStatusBadge(row.original as ApiKey),
     },
     {
       accessorKey: 'permissions',
       header: 'Permissions',
-      cell: ({ row }: any) => {
+      cell: ({ row }: unknown) => {
         const key = row.original as ApiKey;
         return (
           <div className="flex items-center space-x-1">
@@ -164,7 +164,7 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
     {
       accessorKey: 'usage',
       header: 'Usage Today',
-      cell: ({ row }: any) => {
+      cell: ({ row }: unknown) => {
         const key = row.original as ApiKey;
         return (
           <div className="space-y-1">
@@ -182,7 +182,7 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
     {
       accessorKey: 'rateLimits',
       header: 'Rate Limits',
-      cell: ({ row }: any) => {
+      cell: ({ row }: unknown) => {
         const key = row.original as ApiKey;
         return (
           <div className="text-sm">
@@ -197,7 +197,7 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
     {
       accessorKey: 'lastUsed',
       header: 'Last Used',
-      cell: ({ row }: any) => {
+      cell: ({ row }: unknown) => {
         const key = row.original as ApiKey;
         return key.lastUsed ? (
           <div className="text-sm">
@@ -211,7 +211,7 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }: any) => {
+      cell: ({ row }: unknown) => {
         const key = row.original as ApiKey;
         return (
           <DropdownMenu>
@@ -345,7 +345,7 @@ export const ApiKeysList: React.FC<ApiKeysListProps> = ({
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+            <Select value={statusFilter} onValueChange={(value: unknown) => setStatusFilter(value)}>
               <SelectTrigger className="w-[180px]">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by status" />

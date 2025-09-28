@@ -264,7 +264,7 @@ export const createRetryConfig = (retries: number = 3, delay: number = 1000) => 
 };
 
 // Helper for creating authenticated requests
-export const createAuthenticatedRequest = async <T = any>(
+export const createAuthenticatedRequest = async <T = unknown>(
   config: AxiosRequestConfig
 ): Promise<AxiosResponse<T>> => {
   return apiClient.request<T>(config);
@@ -295,7 +295,7 @@ export const createFileUploadRequest = async (
 // Helper for streaming requests
 export const createStreamingRequest = async (
   url: string,
-  data: any,
+  data: unknown,
   onChunk: (chunk: string) => void,
   signal?: AbortSignal
 ): Promise<void> => {

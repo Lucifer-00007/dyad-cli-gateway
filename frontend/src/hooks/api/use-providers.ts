@@ -76,12 +76,12 @@ export const useCreateProvider = () => {
       // Replace temp provider with real one
       queryClient.setQueriesData(
         { queryKey: queryKeys.providers.lists() },
-        (oldData: any) => {
+        (oldData: unknown) => {
           if (!oldData?.results) return oldData;
           
           return {
             ...oldData,
-            results: oldData.results.map((provider: any) =>
+            results: oldData.results.map((provider: unknown) =>
               provider.id === context?.tempProvider.id ? data : provider
             ),
           };

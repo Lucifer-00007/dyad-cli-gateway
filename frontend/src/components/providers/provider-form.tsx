@@ -141,7 +141,7 @@ export const ProviderForm: React.FC<ProviderFormProps> = ({
     }
   };
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: unknown) => {
     try {
       await onSubmit(data);
       setHasUnsavedChanges(false);

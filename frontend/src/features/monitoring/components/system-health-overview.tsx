@@ -23,8 +23,8 @@ import {
 } from 'lucide-react';
 
 interface SystemHealthOverviewProps {
-  data: any;
-  realTimeMetrics?: Record<string, any>;
+  data: unknown;
+  realTimeMetrics?: Record<string, unknown>;
 }
 
 export const SystemHealthOverview: React.FC<SystemHealthOverviewProps> = ({ 
@@ -94,7 +94,7 @@ export const SystemHealthOverview: React.FC<SystemHealthOverviewProps> = ({
           <Progress 
             value={overview.successRate} 
             className="mt-2"
-            // @ts-ignore - Progress component accepts className
+            // @ts-expect-error - Progress component accepts className
             indicatorClassName={getHealthColor(healthStatus).replace('text-', 'bg-')}
           />
         </CardContent>
@@ -230,7 +230,7 @@ export const SystemHealthOverview: React.FC<SystemHealthOverviewProps> = ({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {providers.slice(0, 6).map((provider: any) => (
+            {providers.slice(0, 6).map((provider: unknown) => (
               <div key={provider.id} className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className={`w-2 h-2 rounded-full ${

@@ -29,7 +29,7 @@ const ProviderEdit: React.FC = () => {
       });
       
       navigate(`/providers/${updatedProvider.id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Failed to update provider',
         description: error.message || 'An error occurred while updating the provider.',

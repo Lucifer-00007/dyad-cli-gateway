@@ -10,15 +10,16 @@ import {
   WebSocketEventType, 
   WebSocketConnectionStatus 
 } from '@/services/websocket';
+import { LogEntry } from '@/types/api';
 import { queryKeys, invalidateQueries } from '@/lib/query-client';
 
 /**
  * Hook for subscribing to WebSocket events
  */
-export const useWebSocketEvent = <T = any>(
+export const useWebSocketEvent = <T = unknown>(
   eventType: WebSocketEventType,
   handler: (event: WebSocketEvent<T>) => void,
-  deps: any[] = []
+  deps: unknown[] = []
 ) => {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
@@ -74,18 +75,18 @@ export const useProviderStatusUpdates = () => {
     // Update provider in cache
     queryClient.setQueryData(
       queryKeys.providers.detail(providerId),
-      (oldData: any) => oldData ? { ...oldData, enabled, healthStatus: { status } } : oldData
+      (oldData: unknown) => oldData ? { ...oldData, enabled, healthStatus: { status } } : oldData
     );
 
     // Update provider in lists
     queryClient.setQueriesData(
       { queryKey: queryKeys.providers.lists() },
-      (oldData: any) => {
+      (oldData: unknown) => {
         if (!oldData?.results) return oldData;
         
         return {
           ...oldData,
-          results: oldData.results.map((provider: any) =>
+          results: oldData.results.map((provider: unknown) =>
             provider.id === providerId 
               ? { ...provider, enabled, healthStatus: { status } }
               : provider
@@ -117,7 +118,7 @@ export const useProviderHealthUpdates = () => {
     // Update provider in detail cache
     queryClient.setQueryData(
       queryKeys.providers.detail(providerId),
-      (oldData: any) => oldData ? { ...oldData, healthStatus } : oldData
+      (oldData: unknown) => oldData ? { ...oldData, healthStatus } : oldData
     );
   });
 };
@@ -149,14 +150,14 @@ export const useSystemMetricsUpdates = () => {
  * Hook for real-time log updates
  */
 export const useLogUpdates = (
-  onNewLog?: (logEntry: any) => void,
+  onNewLog?: (logEntry: unknown) => void,
   filters?: {
     level?: string[];
     source?: string[];
     providerId?: string;
   }
 ) => {
-  const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
 
   useWebSocketEvent('new_log_entry', (event) => {
     const logEntry = event.data;
@@ -212,10 +213,10 @@ export const useApiKeyUsageUpdates = () => {
  * Hook for real-time error notifications
  */
 export const useErrorNotifications = (
-  onError?: (error: any) => void,
+  onError?: (error: unknown) => void,
   severity?: 'low' | 'medium' | 'high' | 'critical'
 ) => {
-  const [recentErrors, setRecentErrors] = useState<any[]>([]);
+  const [recentErrors, setRecentErrors] = useState<unknown[]>([]);
 
   useWebSocketEvent('error_occurred', (event) => {
     const error = event.data;
@@ -263,7 +264,7 @@ export const useDashboardUpdates = () => {
  * Hook for sending WebSocket messages
  */
 export const useWebSocketSend = () => {
-  const send = useCallback((message: any) => {
+  const send = useCallback((message: unknown) => {
     webSocketService.send(message);
   }, []);
 
@@ -273,7 +274,7 @@ export const useWebSocketSend = () => {
 /**
  * Hook for WebSocket event history
  */
-export const useWebSocketEventHistory = <T = any>(
+export const useWebSocketEventHistory = <T = unknown>(
   eventType: WebSocketEventType,
   maxEvents: number = 100
 ) => {

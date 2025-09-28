@@ -67,7 +67,7 @@ import { ModelMapping, ProviderType } from '@/types/api';
 import { ProviderTemplate } from '@/lib/templates/provider-templates';
 
 interface ModelMappingEditorProps {
-  control: Control<any>;
+  control: Control<unknown>;
   providerType: ProviderType;
   template?: ProviderTemplate;
   className?: string;

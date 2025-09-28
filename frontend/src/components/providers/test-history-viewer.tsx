@@ -238,7 +238,7 @@ export const TestHistoryViewer: React.FC<TestHistoryViewerProps> = ({
                   <Label>Status</Label>
                   <Select
                     value={filters.status}
-                    onValueChange={(value: any) => handleFilterChange({ status: value })}
+                    onValueChange={(value: unknown) => handleFilterChange({ status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -275,7 +275,7 @@ export const TestHistoryViewer: React.FC<TestHistoryViewerProps> = ({
                   <Label>Date Range</Label>
                   <Select
                     value={filters.dateRange}
-                    onValueChange={(value: any) => handleFilterChange({ dateRange: value })}
+                    onValueChange={(value: unknown) => handleFilterChange({ dateRange: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />

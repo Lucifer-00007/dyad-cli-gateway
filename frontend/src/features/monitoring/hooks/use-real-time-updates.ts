@@ -21,7 +21,7 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [logs, setLogs] = useState<StreamingLogEntry[]>([]);
-  const [metrics, setMetrics] = useState<Record<string, any>>({});
+  const [metrics, setMetrics] = useState<Record<string, unknown>>({});
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -126,7 +126,7 @@ export const useRealTimeUpdates = (options: UseRealTimeUpdatesOptions = {}) => {
     setLogs([]);
   }, []);
 
-  const sendMessage = useCallback((message: any) => {
+  const sendMessage = useCallback((message: unknown) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     }

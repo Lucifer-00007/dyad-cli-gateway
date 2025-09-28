@@ -103,7 +103,7 @@ export const httpSdkConfigSchema = z.object({
     .default(10),
   region: z.string()
     .max(50, 'Maximum 50 characters')
-    .regex(/^[a-z0-9\-]+$/, 'Invalid region format')
+    .regex(/^[a-z0-9-]+$/, 'Invalid region format')
     .optional(),
   modelPrefix: z.string()
     .max(50, 'Maximum 50 characters')
@@ -251,7 +251,7 @@ export type CredentialsFormData = z.infer<typeof credentialsSchema>;
 export type RateLimitsFormData = z.infer<typeof rateLimitsSchema>;
 
 // Validation helper functions
-export const validateAdapterConfig = (type: string, config: any) => {
+export const validateAdapterConfig = (type: string, config: unknown) => {
   const schema = providerSchemas[type as keyof typeof providerSchemas];
   if (!schema) {
     throw new Error(`Unknown provider type: ${type}`);

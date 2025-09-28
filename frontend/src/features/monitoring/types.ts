@@ -32,7 +32,7 @@ export interface ChartDataPoint {
   timestamp: string;
   value: number;
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LogFilter {
@@ -51,7 +51,7 @@ export interface StreamingLogEntry {
   source: string;
   providerId?: string;
   requestId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PerformanceMetric {

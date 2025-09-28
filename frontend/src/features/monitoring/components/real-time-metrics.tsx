@@ -28,7 +28,7 @@ interface RealTimeMetricsProps {
     memoryUsage: number;
     cpuUsage: number;
   };
-  streamingMetrics?: Record<string, any>;
+  streamingMetrics?: Record<string, unknown>;
 }
 
 export const RealTimeMetrics: React.FC<RealTimeMetricsProps> = ({

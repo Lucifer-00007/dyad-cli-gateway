@@ -109,7 +109,7 @@ export const LogsViewer: React.FC<LogsViewerProps> = ({
     }
   }, [allLogs, autoScroll]);
 
-  const handleFilterChange = (key: keyof LogFilter, value: any) => {
+  const handleFilterChange = (key: keyof LogFilter, value: unknown) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPage(1); // Reset to first page when filters change
   };

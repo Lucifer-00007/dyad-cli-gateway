@@ -47,7 +47,7 @@ export const useApiKeyManagement = () => {
       });
       
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Creation Failed",
         description: error.message || "Failed to create API key. Please try again.",
@@ -72,7 +72,7 @@ export const useApiKeyManagement = () => {
       });
       
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Update Failed",
         description: error.message || "Failed to update API key. Please try again.",
@@ -98,7 +98,7 @@ export const useApiKeyManagement = () => {
       
       // Remove from selected keys if it was selected
       setSelectedKeys(prev => prev.filter(keyId => keyId !== id));
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Deletion Failed",
         description: error.message || "Failed to delete API key. Please try again.",
@@ -123,7 +123,7 @@ export const useApiKeyManagement = () => {
       });
       
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Revocation Failed",
         description: error.message || "Failed to revoke API key. Please try again.",
@@ -148,7 +148,7 @@ export const useApiKeyManagement = () => {
       });
       
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Regeneration Failed",
         description: error.message || "Failed to regenerate API key. Please try again.",
@@ -188,7 +188,7 @@ export const useApiKeyManagement = () => {
         case 'disable':
           await bulkUpdateMutation.mutateAsync({
             ids: operation.keyIds,
-            updates: { enabled: operation.action === 'enable' } as any,
+            updates: { enabled: operation.action === 'enable' } as Partial<ApiKey>,
           });
           toast({
             title: `Keys ${operation.action === 'enable' ? 'Enabled' : 'Disabled'}`,
@@ -203,7 +203,7 @@ export const useApiKeyManagement = () => {
           }
           await bulkUpdateMutation.mutateAsync({
             ids: operation.keyIds,
-            updates: { permissions: operation.parameters.permissions } as any,
+            updates: { permissions: operation.parameters.permissions } as Partial<ApiKey>,
           });
           toast({
             title: "Permissions Updated",
@@ -218,7 +218,7 @@ export const useApiKeyManagement = () => {
           }
           await bulkUpdateMutation.mutateAsync({
             ids: operation.keyIds,
-            updates: { rateLimits: operation.parameters.rateLimits } as any,
+            updates: { rateLimits: operation.parameters.rateLimits } as Partial<ApiKey>,
           });
           toast({
             title: "Rate Limits Updated",
@@ -230,7 +230,7 @@ export const useApiKeyManagement = () => {
         default:
           throw new Error(`Unsupported bulk operation: ${operation.action}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Bulk Operation Failed",
         description: error.message || "Failed to perform bulk operation. Please try again.",

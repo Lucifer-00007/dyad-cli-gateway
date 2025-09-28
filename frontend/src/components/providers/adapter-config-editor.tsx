@@ -61,7 +61,7 @@ import { ProviderType } from '@/types/api';
 import { ProviderTemplate } from '@/lib/templates/provider-templates';
 
 interface AdapterConfigEditorProps {
-  control: Control<any>;
+  control: Control<unknown>;
   providerType: ProviderType;
   template?: ProviderTemplate;
   className?: string;
@@ -1037,7 +1037,7 @@ export const AdapterConfigEditor: React.FC<AdapterConfigEditorProps> = ({
 };
 
 // Helper components for complex field types
-const EnvironmentVariablesEditor: React.FC<{ control: Control<any> }> = ({ control }) => {
+const EnvironmentVariablesEditor: React.FC<{ control: Control<unknown> }> = ({ control }) => {
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'adapterConfig.environmentVariables',
@@ -1084,7 +1084,7 @@ const EnvironmentVariablesEditor: React.FC<{ control: Control<any> }> = ({ contr
   );
 };
 
-const HeadersEditor: React.FC<{ control: Control<any> }> = ({ control }) => {
+const HeadersEditor: React.FC<{ control: Control<unknown> }> = ({ control }) => {
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'adapterConfig.headers',
@@ -1134,7 +1134,7 @@ const HeadersEditor: React.FC<{ control: Control<any> }> = ({ control }) => {
   );
 };
 
-const ForwardHeadersEditor: React.FC<{ control: Control<any> }> = ({ control }) => {
+const ForwardHeadersEditor: React.FC<{ control: Control<unknown> }> = ({ control }) => {
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'adapterConfig.forwardHeaders',

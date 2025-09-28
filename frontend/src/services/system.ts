@@ -67,7 +67,7 @@ export class SystemService {
     totalResults: number;
   }> {
     try {
-      const queryParams: any = {
+      const queryParams: unknown = {
         page: params?.page || 1,
         limit: params?.limit || 50,
       };
@@ -157,7 +157,7 @@ export class SystemService {
   static async exportData(
     type: 'logs' | 'metrics' | 'providers',
     format: 'json' | 'csv',
-    filters?: any
+    filters?: Record<string, unknown>
   ): Promise<Blob> {
     try {
       const response = await apiClient.post(

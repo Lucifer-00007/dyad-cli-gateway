@@ -58,7 +58,7 @@ export const ProviderDetail: React.FC<ProviderDetailProps> = ({
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [healthConfigOpen, setHealthConfigOpen] = useState(false);
   const [testHistoryOpen, setTestHistoryOpen] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
+  const [testResult, setTestResult] = useState<unknown>(null);
   const [isTestingProvider, setIsTestingProvider] = useState(false);
 
   const { showDeleteConfirmation, ConfirmationDialog: DeleteDialog } = useDeleteConfirmation();

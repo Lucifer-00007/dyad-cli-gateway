@@ -28,7 +28,7 @@ export interface EnhancedApiError extends ApiError {
   userMessage: string;
   technicalMessage: string;
   timestamp: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // Error classification rules
@@ -63,7 +63,7 @@ const USER_FRIENDLY_MESSAGES: Record<ErrorCategory, string> = {
 /**
  * Enhanced error handler that provides better error classification and user messages
  */
-export const enhanceApiError = (error: unknown, context?: Record<string, any>): EnhancedApiError => {
+export const enhanceApiError = (error: unknown, context?: Record<string, unknown>): EnhancedApiError => {
   let baseError: ApiError;
   let status = 500;
 
@@ -161,7 +161,7 @@ export const getRetryDelay = (attemptCount: number, baseDelay: number = 1000): n
 /**
  * Error reporting utility
  */
-export const reportError = (error: EnhancedApiError, additionalContext?: Record<string, any>): void => {
+export const reportError = (error: EnhancedApiError, additionalContext?: Record<string, unknown>): void => {
   // Log to console in development
   if (process.env.NODE_ENV === 'development') {
     console.error('Enhanced API Error:', {
@@ -194,7 +194,7 @@ export const reportError = (error: EnhancedApiError, additionalContext?: Record<
 /**
  * API response normalization utilities
  */
-export interface NormalizedResponse<T = any> {
+export interface NormalizedResponse<T = unknown> {
   data: T;
   success: boolean;
   error?: EnhancedApiError;
@@ -209,7 +209,7 @@ export interface NormalizedResponse<T = any> {
  * Normalize API response to consistent format
  */
 export const normalizeApiResponse = <T>(
-  response: any,
+  response: unknown,
   cached: boolean = false
 ): NormalizedResponse<T> => {
   return {
@@ -227,7 +227,7 @@ export const normalizeApiResponse = <T>(
  */
 export const normalizeApiError = (
   error: unknown,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): NormalizedResponse<null> => {
   const enhancedError = enhanceApiError(error, context);
   
@@ -255,7 +255,7 @@ export class ApiErrorBoundary {
     };
   }
 
-  static componentDidCatch(error: Error, errorInfo: any): void {
+  static componentDidCatch(error: Error, errorInfo: unknown): void {
     const enhancedError = enhanceApiError(error, { errorInfo });
     reportError(enhancedError);
   }

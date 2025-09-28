@@ -21,7 +21,7 @@ const ProviderCreate: React.FC = () => {
       });
       
       navigate(`/providers/${newProvider.id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Failed to create provider',
         description: error.message || 'An error occurred while creating the provider.',

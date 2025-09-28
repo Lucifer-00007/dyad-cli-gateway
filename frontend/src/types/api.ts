@@ -21,7 +21,7 @@ export interface Provider {
   adapterConfig: AdapterConfig;
   healthStatus?: ProviderHealthStatus;
   rateLimits?: RateLimits;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,7 +82,7 @@ export interface CreateProviderRequest {
   adapterConfig: AdapterConfig;
   credentials?: Record<string, string>;
   rateLimits?: RateLimits;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateProviderRequest {
@@ -95,7 +95,7 @@ export interface UpdateProviderRequest {
   adapterConfig?: AdapterConfig;
   credentials?: Record<string, string>;
   rateLimits?: RateLimits;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ProvidersListResponse {
@@ -133,7 +133,7 @@ export interface TestRequest {
     topP?: number;
     stream?: boolean;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TestResult {
@@ -156,10 +156,10 @@ export interface TestResult {
     type: string;
     message: string;
     code?: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
   };
   logs: LogEntry[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TestHistory {
@@ -346,7 +346,7 @@ export interface LogEntry {
   providerId?: string;
   requestId?: string;
   userId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // API Key Management Types

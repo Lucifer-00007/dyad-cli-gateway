@@ -58,7 +58,7 @@ interface CredentialField {
 }
 
 interface CredentialManagerProps {
-  control: Control<any>;
+  control: Control<unknown>;
   template?: ProviderTemplate;
   className?: string;
 }

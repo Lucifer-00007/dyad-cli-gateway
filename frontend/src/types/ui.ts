@@ -43,7 +43,7 @@ export interface TableColumn<T> {
   label: string;
   sortable?: boolean;
   width?: string;
-  render?: (value: any, row: T) => ReactNode;
+  render?: (value: unknown, row: T) => ReactNode;
 }
 
 export interface TableAction<T> {
@@ -62,7 +62,7 @@ export interface SortConfig {
 
 export interface FilterConfig {
   key: string;
-  value: any;
+  value: unknown;
   operator?: 'eq' | 'ne' | 'contains' | 'startsWith' | 'endsWith';
 }
 
@@ -80,10 +80,10 @@ export interface FormFieldConfig {
     min?: number;
     max?: number;
     pattern?: RegExp;
-    custom?: (value: any) => string | undefined;
+    custom?: (value: unknown) => string | undefined;
   };
   dependsOn?: string;
-  showWhen?: (values: any) => boolean;
+  showWhen?: (values: Record<string, unknown>) => boolean;
 }
 
 export interface ProviderFormData {
@@ -143,7 +143,7 @@ export interface ConfirmationDialogProps {
 export interface ModalState {
   isOpen: boolean;
   type: 'create' | 'edit' | 'delete' | 'test' | 'view';
-  data?: any;
+  data?: unknown;
 }
 
 // Loading and Error States
@@ -259,7 +259,7 @@ export interface LogEntry {
   source: string;
   providerId?: string;
   requestId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LogFilter {

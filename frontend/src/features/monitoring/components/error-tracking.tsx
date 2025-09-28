@@ -44,7 +44,7 @@ import { ErrorAnalysis, MonitoringTimeRange } from '../types';
 import { toast } from 'sonner';
 
 interface ErrorTrackingProps {
-  errors: any[];
+  errors: unknown[];
   timeRange: MonitoringTimeRange;
   isLoading: boolean;
 }
@@ -149,7 +149,7 @@ export const ErrorTracking: React.FC<ErrorTrackingProps> = ({
     setExpandedErrors(newExpanded);
   };
 
-  const copyErrorDetails = (error: any) => {
+  const copyErrorDetails = (error: unknown) => {
     const details = `Error Type: ${error.errorType}
 Error Code: ${error.errorCode}
 Count: ${error.count}
@@ -404,7 +404,7 @@ Affected Providers: ${error.affectedProviders.join(', ')}`;
                   </SelectContent>
                 </Select>
 
-                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                <Select value={sortBy} onValueChange={(value: unknown) => setSortBy(value)}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -491,7 +491,7 @@ Affected Providers: ${error.affectedProviders.join(', ')}`;
                             <div>
                               <span className="font-medium text-sm">Recent Samples:</span>
                               <div className="mt-2 space-y-2">
-                                {error.samples.slice(0, 3).map((sample: any, index: number) => (
+                                {error.samples.slice(0, 3).map((sample: unknown, index: number) => (
                                   <div key={index} className="p-2 bg-muted rounded text-xs font-mono">
                                     <div className="flex items-center justify-between mb-1">
                                       <span className="text-muted-foreground">
