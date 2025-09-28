@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { PageHeader, PageHeaderActions } from '@/components/layout';
-import { MonitoringDashboard } from '@/features/monitoring';
+import { MonitoringDashboard } from '@/components/monitoring-dashboard';
 import { Button } from '@/components/ui/button';
 import { Settings, RefreshCw } from 'lucide-react';
 

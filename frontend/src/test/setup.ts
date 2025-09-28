@@ -115,8 +115,13 @@ beforeAll(() => {
   });
 
   // Mock requestAnimationFrame
-  global.requestAnimationFrame = vi.fn((cb) => setTimeout(cb, 16));
-  global.cancelAnimationFrame = vi.fn((id) => clearTimeout(id));
+  global.requestAnimationFrame = vi.fn((cb) => {
+    setTimeout(cb, 16);
+    return 1; // Return a number as expected by the API
+  });
+  global.cancelAnimationFrame = vi.fn((id) => {
+    // Mock implementation - in real tests we don't need to actually cancel
+  });
 
   // Mock DOMPurify
   vi.mock('dompurify', () => ({
