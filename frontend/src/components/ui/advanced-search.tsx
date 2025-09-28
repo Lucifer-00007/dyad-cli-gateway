@@ -316,7 +316,7 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({
                     <Label>Operator</Label>
                     <Select
                       value={newFilter.operator}
-                      onValueChange={(value) => setNewFilter(prev => ({ ...prev, operator: value as any }))}
+                      onValueChange={(value) => setNewFilter(prev => ({ ...prev, operator: value as SearchFilter['operator'] }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select operator" />

@@ -9,20 +9,20 @@ export interface ExportOptions {
   customDateFormat?: string;
   excludeFields?: string[];
   includeFields?: string[];
-  transformData?: (data: any[]) => any[];
+  transformData?: (data: unknown[]) => unknown[];
 }
 
 export interface ExportColumn {
   key: string;
   label: string;
-  transform?: (value: any, row: any) => any;
+  transform?: (value: unknown, row: Record<string, unknown>) => unknown;
 }
 
 export class DataExporter {
   /**
    * Export data to CSV format
    */
-  static exportToCSV<T extends Record<string, any>>(
+  static exportToCSV<T extends Record<string, unknown>>(
     data: T[],
     options: ExportOptions & { columns?: ExportColumn[] } = {}
   ): void {
@@ -39,7 +39,7 @@ export class DataExporter {
       includeFields,
     } = options;
 
-    let processedData = transformData ? transformData(data) : [...data];
+    const processedData = transformData ? transformData(data) : [...data];
 
     // Determine columns to include
     let columnsToUse: ExportColumn[];
@@ -100,7 +100,7 @@ export class DataExporter {
   /**
    * Export data to JSON format
    */
-  static exportToJSON<T extends Record<string, any>>(
+  static exportToJSON<T extends Record<string, unknown>>(
     data: T[],
     options: ExportOptions = {}
   ): void {
@@ -136,7 +136,7 @@ export class DataExporter {
   /**
    * Export data to Excel format (using CSV with Excel-specific formatting)
    */
-  static exportToExcel<T extends Record<string, any>>(
+  static exportToExcel<T extends Record<string, unknown>>(
     data: T[],
     options: ExportOptions & { columns?: ExportColumn[] } = {}
   ): void {
@@ -154,7 +154,7 @@ export class DataExporter {
   /**
    * Export data to XML format
    */
-  static exportToXML<T extends Record<string, any>>(
+  static exportToXML<T extends Record<string, unknown>>(
     data: T[],
     options: ExportOptions & { rootElement?: string; itemElement?: string } = {}
   ): void {
@@ -190,7 +190,7 @@ export class DataExporter {
   static exportReport(
     sections: Array<{
       name: string;
-      data: any[];
+      data: Record<string, unknown>[];
       options?: ExportOptions;
     }>,
     format: 'json' | 'csv' = 'json',
@@ -211,7 +211,7 @@ export class DataExporter {
           
           acc[section.name] = processedData;
           return acc;
-        }, {} as Record<string, any>),
+        }, {} as Record<string, unknown>),
       };
 
       const jsonContent = JSON.stringify(report, null, 2);
@@ -231,7 +231,7 @@ export class DataExporter {
   /**
    * Helper method to generate CSV content
    */
-  private static generateCSVContent<T extends Record<string, any>>(
+  private static generateCSVContent<T extends Record<string, unknown>>(
     data: T[],
     options: ExportOptions & { columns?: ExportColumn[] }
   ): string {
@@ -245,7 +245,7 @@ export class DataExporter {
       includeFields,
     } = options;
 
-    let processedData = transformData ? transformData(data) : [...data];
+    const processedData = transformData ? transformData(data) : [...data];
 
     // Determine columns
     let columnsToUse: ExportColumn[];
@@ -303,7 +303,7 @@ export class DataExporter {
    * Generate XML content
    */
   private static generateXMLContent(
-    data: any[],
+    data: Record<string, unknown>[],
     rootElement: string,
     itemElement: string,
     options: ExportOptions
@@ -331,7 +331,7 @@ export class DataExporter {
   /**
    * Escape CSV values
    */
-  private static escapeCSVValue(value: any): string {
+  private static escapeCSVValue(value: unknown): string {
     if (value === null || value === undefined) return '';
     
     const stringValue = String(value);
@@ -347,7 +347,7 @@ export class DataExporter {
   /**
    * Escape XML values
    */
-  private static escapeXMLValue(value: any): string {
+  private static escapeXMLValue(value: unknown): string {
     if (value === null || value === undefined) return '';
     
     return String(value)
@@ -361,7 +361,7 @@ export class DataExporter {
   /**
    * Get nested object value
    */
-  private static getNestedValue(obj: any, path: string): any {
+  private static getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce((current, key) => current?.[key], obj);
   }
 
@@ -385,11 +385,11 @@ export class DataExporter {
    * Filter object properties
    */
   private static filterObject(
-    obj: Record<string, any>,
+    obj: Record<string, unknown>,
     fields: string[],
     mode: 'include' | 'exclude'
-  ): Record<string, any> {
-    const result: Record<string, any> = {};
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
     
     Object.entries(obj).forEach(([key, value]) => {
       const shouldInclude = mode === 'include' 
@@ -407,7 +407,7 @@ export class DataExporter {
   /**
    * Format dates in object recursively
    */
-  private static formatDatesInObject(obj: any, options: ExportOptions): any {
+  private static formatDatesInObject(obj: unknown, options: ExportOptions): unknown {
     if (obj instanceof Date) {
       return this.formatDate(obj, options);
     }
@@ -417,7 +417,7 @@ export class DataExporter {
     }
     
     if (obj && typeof obj === 'object') {
-      const result: any = {};
+      const result: Record<string, unknown> = {};
       Object.entries(obj).forEach(([key, value]) => {
         result[key] = this.formatDatesInObject(value, options);
       });

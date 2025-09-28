@@ -2,7 +2,7 @@
  * Performance monitoring hook for frontend optimization
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 export interface PerformanceMetrics {
   // Core Web Vitals
@@ -77,7 +77,7 @@ export const usePerformanceMonitor = (options: {
         // LCP Observer
         const lcpObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
-          const lastEntry = entries[entries.length - 1] as any;
+          const lastEntry = entries[entries.length - 1] as PerformanceEntry & { startTime: number };
           if (lastEntry) {
             updateMetrics({ lcp: lastEntry.startTime });
           }
@@ -87,7 +87,7 @@ export const usePerformanceMonitor = (options: {
         // FID Observer
         const fidObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
-          entries.forEach((entry: any) => {
+          entries.forEach((entry: PerformanceEntry & { processingStart: number; startTime: number }) => {
             updateMetrics({ fid: entry.processingStart - entry.startTime });
           });
         });
@@ -97,7 +97,7 @@ export const usePerformanceMonitor = (options: {
         const clsObserver = new PerformanceObserver((list) => {
           let clsValue = 0;
           const entries = list.getEntries();
-          entries.forEach((entry: any) => {
+          entries.forEach((entry: PerformanceEntry & { hadRecentInput: boolean; value: number }) => {
             if (!entry.hadRecentInput) {
               clsValue += entry.value;
             }
@@ -120,7 +120,7 @@ export const usePerformanceMonitor = (options: {
 
         // Resource timing
         const resourceEntries = performance.getEntriesByType('resource');
-        const totalSize = resourceEntries.reduce((sum, entry: any) => {
+        const totalSize = resourceEntries.reduce((sum, entry: PerformanceEntry & { transferSize?: number }) => {
           return sum + (entry.transferSize || 0);
         }, 0);
         
@@ -138,7 +138,7 @@ export const usePerformanceMonitor = (options: {
     // Memory usage monitoring
     const updateMemoryMetrics = () => {
       if ('memory' in performance) {
-        const memory = (performance as any).memory;
+        const memory = (performance as Performance & { memory: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
         updateMetrics({
           memoryUsage: memory.usedJSHeapSize,
           jsHeapSize: memory.totalJSHeapSize,
@@ -287,7 +287,7 @@ export function withPerformanceMonitoring<P extends object>(
       };
     });
 
-    return <Component {...props} />;
+    return React.createElement(Component, props);
   };
 }
 

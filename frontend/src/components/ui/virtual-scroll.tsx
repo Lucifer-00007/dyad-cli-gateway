@@ -108,7 +108,7 @@ export interface VirtualTableProps<T> {
   className?: string;
 }
 
-export function VirtualTable<T extends Record<string, any>>({
+export function VirtualTable<T extends Record<string, unknown>>({
   data,
   columns,
   rowHeight = 48,

@@ -67,7 +67,10 @@ export const useApiKeyUsageAnalytics = (options: UseApiKeyUsageAnalyticsOptions 
   });
 
   const isLoading = keyId ? isLoadingSingle : isLoadingAll;
-  const usageData = keyId ? (singleKeyUsage ? [singleKeyUsage] : []) : (allUsageData || []);
+  
+  const usageData = useMemo(() => {
+    return keyId ? (singleKeyUsage ? [singleKeyUsage] : []) : (allUsageData || []);
+  }, [keyId, singleKeyUsage, allUsageData]);
 
   // Generate time-series data
   const timeSeriesData = useMemo(() => {

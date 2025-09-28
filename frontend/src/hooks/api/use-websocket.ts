@@ -30,6 +30,7 @@ export const useWebSocketEvent = <T = unknown>(
     });
 
     return unsubscribe;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventType, ...deps]);
 };
 

@@ -21,13 +21,13 @@ const mockProviders = Array.from({ length: 100 }, (_, i) => ({
   id: `provider-${i}`,
   name: `Provider ${i}`,
   slug: `provider-${i}`,
-  type: ['spawn-cli', 'http-sdk', 'proxy', 'local'][i % 4] as any,
+  type: ['spawn-cli', 'http-sdk', 'proxy', 'local'][i % 4] as 'spawn-cli' | 'http-sdk' | 'proxy' | 'local',
   enabled: i % 2 === 0,
   description: `Description for provider ${i}`,
   models: [],
   adapterConfig: {},
   healthStatus: {
-    status: ['healthy', 'unhealthy', 'unknown'][i % 3] as any,
+    status: ['healthy', 'unhealthy', 'unknown'][i % 3] as 'healthy' | 'unhealthy' | 'unknown',
     lastChecked: new Date().toISOString(),
   },
   createdAt: new Date(Date.now() - i * 86400000).toISOString(),
@@ -373,13 +373,13 @@ describe('Data Export', () => {
     
     vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
       if (tagName === 'a') {
-        return mockLink as any;
+        return mockLink as HTMLAnchorElement;
       }
       return document.createElement(tagName);
     });
     
-    vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as any);
-    vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as any);
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => mockLink as HTMLAnchorElement);
+    vi.spyOn(document.body, 'removeChild').mockImplementation(() => mockLink as HTMLAnchorElement);
   });
 
   it('should export data to CSV format', () => {

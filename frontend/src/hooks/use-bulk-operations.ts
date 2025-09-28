@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-export interface BulkOperation<T = any> {
+export interface BulkOperation<T = unknown> {
   id: string;
   type: string;
   items: T[];
@@ -33,7 +33,7 @@ export interface BulkOperationConfig<T> {
   onError?: (operation: BulkOperation<T>, error: Error) => void;
 }
 
-export const useBulkOperations = <T = any>() => {
+export const useBulkOperations = <T = unknown>() => {
   const [operations, setOperations] = useState<Map<string, BulkOperation<T>>>(new Map());
   const { toast } = useToast();
 

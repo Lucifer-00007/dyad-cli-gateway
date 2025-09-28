@@ -7,7 +7,7 @@ import { useState, useMemo, useCallback, useRef } from 'react';
 export interface SearchFilter {
   field: string;
   operator: 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'notIn' | 'between';
-  value: any;
+  value: unknown;
   type: 'string' | 'number' | 'date' | 'boolean' | 'array';
 }
 
@@ -17,7 +17,7 @@ export interface SearchConfig {
     field: string;
     label: string;
     type: 'string' | 'number' | 'date' | 'boolean' | 'select' | 'multiselect';
-    options?: Array<{ label: string; value: any }>;
+    options?: Array<{ label: string; value: unknown }>;
   }>;
   sortableFields: Array<{
     field: string;
@@ -38,7 +38,7 @@ export interface SearchState {
   limit: number;
 }
 
-export const useAdvancedSearch = <T extends Record<string, any>>(
+export const useAdvancedSearch = <T extends Record<string, unknown>>(
   data: T[],
   config: SearchConfig,
   initialState?: Partial<SearchState>
@@ -150,12 +150,12 @@ export const useAdvancedSearch = <T extends Record<string, any>>(
   const totalPages = Math.ceil(filteredData.length / searchState.limit);
 
   // Helper function to get nested object values
-  const getNestedValue = (obj: any, path: string): any => {
+  const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
     return path.split('.').reduce((current, key) => current?.[key], obj);
   };
 
   // Helper function to apply filters
-  const applyFilter = (value: any, filter: SearchFilter): boolean => {
+  const applyFilter = (value: unknown, filter: SearchFilter): boolean => {
     if (value === null || value === undefined) return false;
 
     switch (filter.operator) {
@@ -189,20 +189,20 @@ export const useAdvancedSearch = <T extends Record<string, any>>(
     }
   };
 
-  // Export data functionality
-  const exportData = useCallback((format: 'csv' | 'json', filename?: string) => {
-    const dataToExport = filteredData;
-    const timestamp = new Date().toISOString().split('T')[0];
-    const defaultFilename = `export-${timestamp}`;
+  // Helper functions for export
+  const downloadFile = useCallback((content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
 
-    if (format === 'csv') {
-      exportToCSV(dataToExport, filename || `${defaultFilename}.csv`);
-    } else {
-      exportToJSON(dataToExport, filename || `${defaultFilename}.json`);
-    }
-  }, [filteredData]);
-
-  const exportToCSV = (data: T[], filename: string) => {
+  const exportToCSV = useCallback((data: T[], filename: string) => {
     if (data.length === 0) return;
 
     const headers = Object.keys(data[0]);
@@ -221,24 +221,25 @@ export const useAdvancedSearch = <T extends Record<string, any>>(
     ].join('\n');
 
     downloadFile(csvContent, filename, 'text/csv');
-  };
+  }, [downloadFile]);
 
-  const exportToJSON = (data: T[], filename: string) => {
+  const exportToJSON = useCallback((data: T[], filename: string) => {
     const jsonContent = JSON.stringify(data, null, 2);
     downloadFile(jsonContent, filename, 'application/json');
-  };
+  }, [downloadFile]);
 
-  const downloadFile = (content: string, filename: string, mimeType: string) => {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  // Export data functionality
+  const exportData = useCallback((format: 'csv' | 'json', filename?: string) => {
+    const dataToExport = filteredData;
+    const timestamp = new Date().toISOString().split('T')[0];
+    const defaultFilename = `export-${timestamp}`;
+
+    if (format === 'csv') {
+      exportToCSV(dataToExport, filename || `${defaultFilename}.csv`);
+    } else {
+      exportToJSON(dataToExport, filename || `${defaultFilename}.json`);
+    }
+  }, [filteredData, exportToCSV, exportToJSON]);
 
   // Search suggestions
   const getSearchSuggestions = useCallback((query: string): string[] => {

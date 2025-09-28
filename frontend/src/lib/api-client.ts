@@ -89,14 +89,14 @@ class AuthManager {
     this.tokenExpiresAt = null;
   }
 
-  private getCSRFToken(): string {
+  getCSRFToken(): string {
     // Get CSRF token from meta tag or cookie
     const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (metaToken) return metaToken;
 
     // Fallback to cookie
     const cookies = document.cookie.split(';');
-    const csrfCookie = cookies.find(cookie => cookie.trim().startsWith(`${config.security.csrfCookieName}=`));
+    const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrf-token='));
     return csrfCookie ? csrfCookie.split('=')[1] : '';
   }
 }
@@ -135,7 +135,7 @@ apiClient.interceptors.request.use(
     
     if (isStateChanging) {
       config.headers = config.headers || {};
-      config.headers[config.security.csrfHeaderName] = authManager.getCSRFToken();
+      config.headers['X-CSRF-Token'] = authManager.getCSRFToken();
     }
 
     // Add API versioning header
