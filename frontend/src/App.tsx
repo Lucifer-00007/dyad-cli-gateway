@@ -13,6 +13,7 @@ import Monitoring from './pages/Monitoring';
 import ApiKeys from './pages/ApiKeys';
 import ChatPlayground from './pages/ChatPlayground';
 import NotFound from './pages/NotFound';
+import { AdvancedFeaturesDemo } from './components/advanced-features-demo';
 
 const App = () => (
   <AppProviders>
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/monitoring" element={<Monitoring />} />
               <Route path={APP_CONSTANTS.ROUTES.API_KEYS} element={<ApiKeys />} />
               <Route path="/chat" element={<ChatPlayground />} />
+              <Route path="/advanced-features" element={<AdvancedFeaturesDemo />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path={APP_CONSTANTS.ROUTES.NOT_FOUND} element={<NotFound />} />
             </Routes>
