@@ -13,6 +13,7 @@ const { FallbackPolicyService } = require('./fallback-policy.service');
 const HealthMonitorService = require('./health-monitor.service');
 const monitoringService = require('./monitoring.service');
 const structuredLogger = require('./structured-logger.service');
+const PerformanceService = require('./performance.service');
 const crypto = require('crypto');
 
 class GatewayService {
@@ -21,8 +22,21 @@ class GatewayService {
     this.initialized = false;
     this.adapterFactory = AdapterFactory;
     this.normalizer = new OpenAINormalizer();
-    this.providerCache = new Map(); // Cache for provider lookups
-    this.modelCache = new Map(); // Cache for model listings
+    
+    // Performance service with integrated caching and connection pooling
+    this.performanceService = new PerformanceService({
+      maxConcurrent: this.config.performance?.maxConcurrent || 10,
+      maxSockets: this.config.performance?.maxSockets || 50,
+      cache: {
+        models: { maxSize: 100, defaultTTL: 300000 }, // 5 minutes
+        providers: { maxSize: 50, defaultTTL: 60000 }, // 1 minute
+        health: { maxSize: 100, defaultTTL: 30000 }, // 30 seconds
+      }
+    });
+    
+    // Legacy cache support (will be migrated to performance service)
+    this.providerCache = new Map();
+    this.modelCache = new Map();
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
     
     // Circuit breaker and fallback services
@@ -74,79 +88,93 @@ class GatewayService {
       stream
     });
 
+    // Generate cache key for non-streaming requests
+    const cacheKey = !stream ? this.generateCacheKey('chat', model, messages, options) : null;
+
     try {
-      // Use fallback policy to execute request
-      const requestFn = async (providerId) => {
-        const provider = await Provider.findById(providerId);
-        if (!provider) {
-          throw new Error(`Provider not found: ${providerId}`);
+      // Use performance service to execute request with optimizations
+      return await this.performanceService.executeRequest(
+        async () => {
+          // Use fallback policy to execute request
+          const requestFn = async (providerId) => {
+            const provider = await this.findProviderForModel(model);
+            if (!provider) {
+              throw new Error(`No provider found for model: ${model}`);
+            }
+
+            // Get model mapping
+            const modelMapping = provider.getModelMapping(model);
+            if (!modelMapping) {
+              throw new Error(`Model mapping not found for: ${model}`);
+            }
+
+            // Create adapter instance
+            const adapter = this.adapterFactory.createAdapter(provider, provider.credentials);
+
+            // Check if streaming is supported
+            if (stream && !adapter.supportsStreaming) {
+              logger.warn('Streaming requested but not supported by adapter, falling back to non-streaming', {
+                requestId,
+                model,
+                providerId: provider._id
+              });
+              stream = false;
+            }
+
+            // Prepare adapter request
+            const adapterRequest = {
+              messages,
+              options: {
+                ...options,
+                max_tokens: options.max_tokens || modelMapping.maxTokens,
+                model: modelMapping.adapterModelId
+              },
+              requestMeta: {
+                ...requestMeta,
+                requestId,
+                providerId: provider._id,
+                providerName: provider.name
+              },
+              signal,
+              stream
+            };
+
+            if (stream) {
+              // Return streaming generator
+              return this.handleChatCompletionStream(adapter, adapterRequest, model, provider);
+            }
+
+            // Execute adapter request
+            const adapterResponse = await adapter.handleChat(adapterRequest);
+
+            // Normalize response to OpenAI format
+            const normalizedResponse = this.normalizer.normalizeChatResponse(
+              adapterResponse,
+              model,
+              requestId,
+              provider
+            );
+
+            logger.info('Chat completion request completed', {
+              requestId,
+              model,
+              providerId: provider._id,
+              tokensUsed: normalizedResponse.usage?.total_tokens || 0
+            });
+
+            return normalizedResponse;
+          };
+
+          // Execute with fallback policy
+          return await this.fallbackPolicyService.executeWithFallback(model, requestFn);
+        },
+        {
+          priority: stream ? 0 : 1, // Higher priority for streaming
+          cacheKey,
+          cacheTTL: 60000, // 1 minute cache for chat responses
+          metadata: { requestId, model, stream }
         }
-
-        // Get model mapping
-        const modelMapping = provider.getModelMapping(model);
-        if (!modelMapping) {
-          throw new Error(`Model mapping not found for: ${model}`);
-        }
-
-        // Create adapter instance
-        const adapter = this.adapterFactory.createAdapter(provider, provider.credentials);
-
-        // Check if streaming is supported
-        if (stream && !adapter.supportsStreaming) {
-          logger.warn('Streaming requested but not supported by adapter, falling back to non-streaming', {
-            requestId,
-            model,
-            providerId: provider._id
-          });
-          stream = false;
-        }
-
-        // Prepare adapter request
-        const adapterRequest = {
-          messages,
-          options: {
-            ...options,
-            max_tokens: options.max_tokens || modelMapping.maxTokens,
-            model: modelMapping.adapterModelId
-          },
-          requestMeta: {
-            ...requestMeta,
-            requestId,
-            providerId: provider._id,
-            providerName: provider.name
-          },
-          signal,
-          stream
-        };
-
-        if (stream) {
-          // Return streaming generator
-          return this.handleChatCompletionStream(adapter, adapterRequest, model, provider);
-        }
-
-        // Execute adapter request
-        const adapterResponse = await adapter.handleChat(adapterRequest);
-
-        // Normalize response to OpenAI format
-        const normalizedResponse = this.normalizer.normalizeChatResponse(
-          adapterResponse,
-          model,
-          requestId,
-          provider
-        );
-
-        logger.info('Chat completion request completed', {
-          requestId,
-          model,
-          providerId: provider._id,
-          tokensUsed: normalizedResponse.usage?.total_tokens || 0
-        });
-
-        return normalizedResponse;
-      };
-
-      // Execute with fallback policy
-      return await this.fallbackPolicyService.executeWithFallback(model, requestFn);
+      );
 
     } catch (error) {
       logger.error('Chat completion request failed', {
@@ -303,11 +331,11 @@ class GatewayService {
    */
   async getAvailableModels() {
     try {
-      // Check cache first
-      const cacheKey = 'all-models';
-      const cached = this.modelCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-        return cached.data;
+      // Check performance service cache first
+      const cached = this.performanceService.getCachedModels();
+      if (cached) {
+        logger.debug('Models retrieved from cache');
+        return cached;
       }
 
       // Fetch models from database
@@ -316,11 +344,8 @@ class GatewayService {
       // Normalize to OpenAI format
       const normalizedModels = this.normalizer.normalizeModels(models);
 
-      // Cache the result
-      this.modelCache.set(cacheKey, {
-        data: normalizedModels,
-        timestamp: Date.now()
-      });
+      // Cache the result in performance service
+      this.performanceService.cacheModels(normalizedModels, 300000); // 5 minutes
 
       logger.info('Retrieved available models', {
         modelCount: models.length
@@ -343,12 +368,12 @@ class GatewayService {
    */
   async findProviderForModel(modelId) {
     try {
-      // Check cache first
-      const cached = this.providerCache.get(modelId);
-      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      // Check performance service cache first
+      const cached = this.performanceService.getCachedProvider(modelId);
+      if (cached) {
         // Filter out providers with open circuit breakers
-        if (this.circuitBreakerService.isProviderHealthy(cached.provider._id.toString())) {
-          return cached.provider;
+        if (this.circuitBreakerService.isProviderHealthy(cached._id.toString())) {
+          return cached;
         }
       }
 
@@ -370,11 +395,8 @@ class GatewayService {
       // Return first healthy provider, or first available if none are healthy
       const provider = healthyProviders.length > 0 ? healthyProviders[0] : providers[0];
 
-      // Cache the result
-      this.providerCache.set(modelId, {
-        provider,
-        timestamp: Date.now()
-      });
+      // Cache the result in performance service
+      this.performanceService.cacheProvider(modelId, provider, 60000); // 1 minute
 
       return provider;
 
@@ -393,7 +415,28 @@ class GatewayService {
   clearCaches() {
     this.providerCache.clear();
     this.modelCache.clear();
+    this.performanceService.clearCaches();
     logger.debug('Gateway service caches cleared');
+  }
+
+  /**
+   * Generate cache key for requests
+   * @param {string} type - Request type
+   * @param {string} model - Model ID
+   * @param {Array} messages - Messages array
+   * @param {Object} options - Request options
+   * @returns {string} - Cache key
+   */
+  generateCacheKey(type, model, messages, options) {
+    const crypto = require('crypto');
+    const content = JSON.stringify({
+      type,
+      model,
+      messages: messages.slice(-3), // Only last 3 messages for cache key
+      temperature: options.temperature,
+      max_tokens: options.max_tokens
+    });
+    return `${type}:${crypto.createHash('md5').update(content).digest('hex')}`;
   }
 
   /**
@@ -416,6 +459,9 @@ class GatewayService {
    * Initialize gateway components
    */
   async initializeComponents() {
+    // Initialize performance service
+    await this.performanceService.initialize();
+    
     // Initialize normalizer
     await this.normalizer.initialize();
     
@@ -557,6 +603,11 @@ class GatewayService {
   async shutdown() {
     logger.info('Shutting down gateway services...');
     
+    // Shutdown performance service
+    if (this.performanceService) {
+      await this.performanceService.shutdown();
+    }
+    
     // Stop health monitoring
     this.healthMonitorService.stop();
     
@@ -571,6 +622,22 @@ class GatewayService {
     
     this.initialized = false;
     logger.info('Gateway services shut down');
+  }
+
+  /**
+   * Get performance statistics
+   * @returns {Object}
+   */
+  getPerformanceStats() {
+    return this.performanceService.getStats();
+  }
+
+  /**
+   * Get performance health status
+   * @returns {Object}
+   */
+  getPerformanceHealth() {
+    return this.performanceService.getHealthStatus();
   }
 }
 

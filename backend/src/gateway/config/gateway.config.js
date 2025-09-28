@@ -41,6 +41,17 @@ const envVarsSchema = Joi.object()
     // Health Check
     GATEWAY_HEALTH_CHECK_INTERVAL: Joi.number().default(30000), // 30 seconds
 
+    // Performance Configuration
+    GATEWAY_PERFORMANCE_MAX_CONCURRENT: Joi.number().default(10),
+    GATEWAY_PERFORMANCE_MAX_QUEUE_SIZE: Joi.number().default(100),
+    GATEWAY_PERFORMANCE_REQUEST_TIMEOUT: Joi.number().default(30000),
+    GATEWAY_PERFORMANCE_MAX_SOCKETS: Joi.number().default(50),
+    GATEWAY_PERFORMANCE_MAX_FREE_SOCKETS: Joi.number().default(10),
+    GATEWAY_PERFORMANCE_KEEP_ALIVE: Joi.boolean().default(true),
+    GATEWAY_PERFORMANCE_CACHE_MODELS_TTL: Joi.number().default(300000), // 5 minutes
+    GATEWAY_PERFORMANCE_CACHE_PROVIDERS_TTL: Joi.number().default(60000), // 1 minute
+    GATEWAY_PERFORMANCE_CACHE_HEALTH_TTL: Joi.number().default(30000), // 30 seconds
+
     // Logging
     GATEWAY_LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'debug').default('info'),
     GATEWAY_LOG_REDACT_SENSITIVE: Joi.boolean().default(true),
@@ -98,6 +109,27 @@ module.exports = {
   // Health Check
   healthCheck: {
     interval: envVars.GATEWAY_HEALTH_CHECK_INTERVAL,
+  },
+
+  // Performance Configuration
+  performance: {
+    maxConcurrent: envVars.GATEWAY_PERFORMANCE_MAX_CONCURRENT,
+    maxQueueSize: envVars.GATEWAY_PERFORMANCE_MAX_QUEUE_SIZE,
+    requestTimeout: envVars.GATEWAY_PERFORMANCE_REQUEST_TIMEOUT,
+    maxSockets: envVars.GATEWAY_PERFORMANCE_MAX_SOCKETS,
+    maxFreeSockets: envVars.GATEWAY_PERFORMANCE_MAX_FREE_SOCKETS,
+    keepAlive: envVars.GATEWAY_PERFORMANCE_KEEP_ALIVE,
+    cache: {
+      models: {
+        defaultTTL: envVars.GATEWAY_PERFORMANCE_CACHE_MODELS_TTL,
+      },
+      providers: {
+        defaultTTL: envVars.GATEWAY_PERFORMANCE_CACHE_PROVIDERS_TTL,
+      },
+      health: {
+        defaultTTL: envVars.GATEWAY_PERFORMANCE_CACHE_HEALTH_TTL,
+      },
+    },
   },
 
   // Logging

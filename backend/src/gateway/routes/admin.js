@@ -86,6 +86,12 @@ router.use('/secrets', require('./secrets.route'));
 // Security management routes
 router.use('/security', require('./security.route'));
 
+// Performance monitoring routes
+router.use('/performance', require('./performance.routes'));
+
+// Dashboard routes
+router.use('/dashboard', require('./dashboard.routes'));
+
 // Error handling middleware
 router.use(errorConverter);
 router.use(errorHandler);
