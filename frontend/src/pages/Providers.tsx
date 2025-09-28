@@ -1,69 +1,81 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageHeader, PageHeaderActions } from '@/components/layout';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Edit, Trash2, Play, Settings } from 'lucide-react';
-import { useDeleteConfirmation } from '@/components/ui/confirmation-dialog';
-
-// Mock data for demonstration
-interface Provider {
-  id: string;
-  name: string;
-  type: 'spawn-cli' | 'http-sdk' | 'proxy' | 'local';
-  status: 'active' | 'inactive' | 'error';
-  models: number;
-  lastHealthCheck: string;
-}
-
-const mockProviders: Provider[] = [
-  {
-    id: '1',
-    name: 'OpenAI GPT',
-    type: 'http-sdk',
-    status: 'active',
-    models: 3,
-    lastHealthCheck: '2 minutes ago',
-  },
-  {
-    id: '2',
-    name: 'Local Llama',
-    type: 'spawn-cli',
-    status: 'active',
-    models: 1,
-    lastHealthCheck: '5 minutes ago',
-  },
-  {
-    id: '3',
-    name: 'Claude Proxy',
-    type: 'proxy',
-    status: 'error',
-    models: 2,
-    lastHealthCheck: '1 hour ago',
-  },
-  {
-    id: '4',
-    name: 'Local Model Server',
-    type: 'local',
-    status: 'inactive',
-    models: 1,
-    lastHealthCheck: 'Never',
-  },
-];
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Play, 
+  Settings, 
+  Eye, 
+  Power, 
+  PowerOff,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Activity
+} from 'lucide-react';
+import { useDeleteConfirmation, useConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  useProviders, 
+  useDeleteProvider, 
+  useToggleProvider, 
+  useTestProvider 
+} from '@/hooks/api/use-providers';
+import { Provider } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
 
 const Providers: React.FC = () => {
-  const { showDeleteConfirmation, ConfirmationDialog } = useDeleteConfirmation();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  
+  const { showDeleteConfirmation, ConfirmationDialog: DeleteDialog } = useDeleteConfirmation();
+  const { showConfirmation, ConfirmationDialog: ToggleDialog } = useConfirmationDialog();
+
+  // API hooks
+  const { data: providersData, isLoading, error, refetch } = useProviders();
+  const deleteProviderMutation = useDeleteProvider();
+  const toggleProviderMutation = useToggleProvider();
+  const testProviderMutation = useTestProvider();
+
+  const providers = providersData?.results || [];
+
+  const handleCreate = () => {
+    navigate('/providers/new');
+  };
 
   const handleEdit = (provider: Provider) => {
-    console.log('Edit provider:', provider);
+    navigate(`/providers/${provider.id}/edit`);
+  };
+
+  const handleView = (provider: Provider) => {
+    navigate(`/providers/${provider.id}`);
   };
 
   const handleDelete = (provider: Provider) => {
     showDeleteConfirmation(
       `provider "${provider.name}"`,
-      () => {
-        console.log('Delete provider:', provider);
-        // Here you would call your delete API
+      async () => {
+        try {
+          await deleteProviderMutation.mutateAsync(provider.id);
+          toast({
+            title: 'Provider deleted',
+            description: `${provider.name} has been successfully deleted.`,
+          });
+        } catch (error) {
+          toast({
+            title: 'Delete failed',
+            description: 'Failed to delete provider. Please try again.',
+            variant: 'destructive',
+          });
+        }
       },
       {
         description: `This will permanently delete the provider "${provider.name}" and all its configurations. This action cannot be undone.`,
@@ -71,8 +83,113 @@ const Providers: React.FC = () => {
     );
   };
 
-  const handleTest = (provider: Provider) => {
-    console.log('Test provider:', provider);
+  const handleToggle = (provider: Provider) => {
+    const action = provider.enabled ? 'disable' : 'enable';
+    const actionTitle = provider.enabled ? 'Disable Provider' : 'Enable Provider';
+    
+    showConfirmation({
+      title: actionTitle,
+      description: `Are you sure you want to ${action} "${provider.name}"? ${
+        provider.enabled 
+          ? 'This will stop all requests to this provider.' 
+          : 'This will allow requests to be sent to this provider.'
+      }`,
+      confirmText: action.charAt(0).toUpperCase() + action.slice(1),
+      variant: provider.enabled ? 'warning' : 'default',
+      onConfirm: async () => {
+        try {
+          await toggleProviderMutation.mutateAsync({ 
+            id: provider.id, 
+            enabled: !provider.enabled 
+          });
+          toast({
+            title: `Provider ${action}d`,
+            description: `${provider.name} has been ${action}d.`,
+          });
+        } catch (error) {
+          toast({
+            title: `Failed to ${action} provider`,
+            description: `Could not ${action} ${provider.name}. Please try again.`,
+            variant: 'destructive',
+          });
+        }
+      },
+    });
+  };
+
+  const handleTest = async (provider: Provider) => {
+    setTestingProvider(provider.id);
+    try {
+      const result = await testProviderMutation.mutateAsync({ 
+        id: provider.id, 
+        dryRun: false 
+      });
+      
+      if (result.status === 'success') {
+        toast({
+          title: 'Test successful',
+          description: `${provider.name} responded successfully in ${result.duration}ms.`,
+        });
+      } else {
+        toast({
+          title: 'Test failed',
+          description: result.error?.message || 'Provider test failed.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Test error',
+        description: 'Failed to test provider. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingProvider(null);
+    }
+  };
+
+  const getStatusIcon = (provider: Provider) => {
+    if (!provider.enabled) {
+      return <PowerOff className="h-4 w-4 text-muted-foreground" />;
+    }
+    
+    switch (provider.healthStatus?.status) {
+      case 'healthy':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'unhealthy':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+    }
+  };
+
+  const getStatusBadge = (provider: Provider) => {
+    if (!provider.enabled) {
+      return <Badge variant="secondary">Disabled</Badge>;
+    }
+    
+    switch (provider.healthStatus?.status) {
+      case 'healthy':
+        return <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-100">Healthy</Badge>;
+      case 'unhealthy':
+        return <Badge variant="destructive">Unhealthy</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  const formatLastChecked = (provider: Provider) => {
+    if (!provider.healthStatus?.lastChecked) {
+      return 'Never';
+    }
+    
+    try {
+      return formatDistanceToNow(new Date(provider.healthStatus.lastChecked), { 
+        addSuffix: true 
+      });
+    } catch {
+      return 'Unknown';
+    }
   };
 
   const columns: ColumnDef<Provider>[] = [
@@ -81,6 +198,19 @@ const Providers: React.FC = () => {
       header: 'Name',
       accessorKey: 'name',
       sortable: true,
+      cell: (provider) => (
+        <div className="flex items-center gap-3">
+          {getStatusIcon(provider)}
+          <div>
+            <div className="font-medium">{provider.name}</div>
+            {provider.description && (
+              <div className="text-sm text-muted-foreground truncate max-w-[200px]">
+                {provider.description}
+              </div>
+            )}
+          </div>
+        </div>
+      ),
     },
     {
       id: 'type',
@@ -95,50 +225,76 @@ const Providers: React.FC = () => {
         { label: 'Local', value: 'local' },
       ],
       cell: (provider) => (
-        <Badge variant="outline">
-          {provider.type}
+        <Badge variant="outline" className="capitalize">
+          {provider.type.replace('-', ' ')}
         </Badge>
       ),
     },
     {
       id: 'status',
       header: 'Status',
-      accessorKey: 'status',
       sortable: true,
       filterable: true,
       filterOptions: [
-        { label: 'Active', value: 'active' },
-        { label: 'Inactive', value: 'inactive' },
-        { label: 'Error', value: 'error' },
+        { label: 'Enabled', value: 'enabled' },
+        { label: 'Disabled', value: 'disabled' },
+        { label: 'Healthy', value: 'healthy' },
+        { label: 'Unhealthy', value: 'unhealthy' },
       ],
-      cell: (provider) => (
-        <Badge
-          variant={
-            provider.status === 'active'
-              ? 'default'
-              : provider.status === 'error'
-              ? 'destructive'
-              : 'secondary'
-          }
-        >
-          {provider.status}
-        </Badge>
-      ),
+      cell: (provider) => getStatusBadge(provider),
     },
     {
       id: 'models',
       header: 'Models',
-      accessorKey: 'models',
       sortable: true,
       align: 'center',
+      cell: (provider) => (
+        <div className="text-center">
+          <span className="font-medium">{provider.models?.length || 0}</span>
+        </div>
+      ),
     },
     {
       id: 'lastHealthCheck',
       header: 'Last Health Check',
-      accessorKey: 'lastHealthCheck',
       sortable: true,
+      cell: (provider) => (
+        <div className="text-sm">
+          {formatLastChecked(provider)}
+        </div>
+      ),
     },
   ];
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Providers"
+          description="Manage AI providers and their configurations"
+          breadcrumbs={[
+            { label: 'Home', href: '/' },
+            { label: 'Providers', isCurrentPage: true },
+          ]}
+        />
+        
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load providers. Please try refreshing the page.
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-2"
+              onClick={() => refetch()}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -153,14 +309,14 @@ const Providers: React.FC = () => {
           <PageHeaderActions
             primaryAction={{
               label: 'Add Provider',
-              onClick: () => console.log('Add provider'),
+              onClick: handleCreate,
               icon: Plus,
             }}
             secondaryActions={[
               {
-                label: 'Settings',
-                onClick: () => console.log('Provider settings'),
-                icon: Settings,
+                label: 'Refresh',
+                onClick: () => refetch(),
+                icon: Activity,
                 variant: 'outline',
               },
             ]}
@@ -168,16 +324,81 @@ const Providers: React.FC = () => {
         }
       />
 
+      {/* Provider Stats Cards */}
+      {!isLoading && providers.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Providers</CardTitle>
+              <Settings className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{providers.length}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Enabled</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {providers.filter(p => p.enabled).length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Healthy</CardTitle>
+              <Activity className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {providers.filter(p => p.healthStatus?.status === 'healthy').length}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Models</CardTitle>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {providers.reduce((sum, p) => sum + (p.models?.length || 0), 0)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <DataTable
-        data={mockProviders}
+        data={providers}
         columns={columns}
+        loading={isLoading}
         searchPlaceholder="Search providers..."
         actions={[
+          {
+            label: 'View',
+            onClick: handleView,
+            icon: Eye,
+            variant: 'ghost',
+          },
           {
             label: 'Test',
             onClick: handleTest,
             icon: Play,
             variant: 'default',
+            disabled: (provider) => !provider.enabled || testingProvider === provider.id,
+          },
+          {
+            label: (provider) => provider.enabled ? 'Disable' : 'Enable',
+            onClick: handleToggle,
+            icon: (provider) => provider.enabled ? PowerOff : Power,
+            variant: 'ghost',
           },
           {
             label: 'Edit',
@@ -190,7 +411,7 @@ const Providers: React.FC = () => {
             onClick: handleDelete,
             icon: Trash2,
             variant: 'destructive',
-            disabled: (provider) => provider.status === 'active',
+            disabled: (provider) => provider.enabled,
           },
         ]}
         pagination={{
@@ -202,7 +423,7 @@ const Providers: React.FC = () => {
           title: 'No providers found',
           description: 'Get started by adding your first AI provider.',
           action: (
-            <Button onClick={() => console.log('Add first provider')}>
+            <Button onClick={handleCreate}>
               <Plus className="mr-2 h-4 w-4" />
               Add Provider
             </Button>
@@ -210,7 +431,8 @@ const Providers: React.FC = () => {
         }}
       />
 
-      <ConfirmationDialog />
+      <DeleteDialog />
+      <ToggleDialog />
     </div>
   );
 };
