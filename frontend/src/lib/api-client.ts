@@ -7,6 +7,7 @@ import { ErrorResponse } from '@/types';
 import { enhanceApiError, reportError } from './error-handling';
 
 import { config } from './config';
+import { CSRFProtection, rateLimitTracker } from './security';
 
 // API client configuration
 const API_BASE_URL = config.apiBaseUrl;
@@ -90,14 +91,7 @@ class AuthManager {
   }
 
   getCSRFToken(): string {
-    // Get CSRF token from meta tag or cookie
-    const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (metaToken) return metaToken;
-
-    // Fallback to cookie
-    const cookies = document.cookie.split(';');
-    const csrfCookie = cookies.find(cookie => cookie.trim().startsWith('csrf-token='));
-    return csrfCookie ? csrfCookie.split('=')[1] : '';
+    return CSRFProtection.getToken();
   }
 }
 
@@ -107,6 +101,13 @@ export const authManager = new AuthManager();
 // Request interceptor for authentication and CSRF
 apiClient.interceptors.request.use(
   async (config: AxiosRequestConfig) => {
+    // Rate limiting check
+    const rateLimitKey = `api_${config.method}_${config.url}`;
+    if (!rateLimitTracker.isWithinLimit(rateLimitKey)) {
+      throw new Error('Rate limit exceeded. Please wait before making more requests.');
+    }
+    rateLimitTracker.recordRequest(rateLimitKey);
+
     // Add access token if available
     let token = authManager.getAccessToken();
     
@@ -141,6 +142,10 @@ apiClient.interceptors.request.use(
     // Add API versioning header
     config.headers = config.headers || {};
     config.headers['X-API-Version'] = '1.0';
+
+    // Add security headers
+    config.headers['X-Requested-With'] = 'XMLHttpRequest';
+    config.headers['Cache-Control'] = 'no-cache';
 
     return config;
   },
