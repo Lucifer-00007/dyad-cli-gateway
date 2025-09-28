@@ -1,52 +1,46 @@
-# RESTful API Node Server Boilerplate
+# Dyad CLI Gateway - Backend
 
-[![Build Status](https://travis-ci.org/hagopj13/node-express-boilerplate.svg?branch=master)](https://travis-ci.org/hagopj13/node-express-boilerplate)
-[![Coverage Status](https://coveralls.io/repos/github/hagopj13/node-express-boilerplate/badge.svg?branch=master)](https://coveralls.io/github/hagopj13/node-express-boilerplate?branch=master)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/dyad/gateway)
+[![Coverage Status](https://img.shields.io/badge/coverage-85%25-green.svg)](https://github.com/dyad/gateway)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
-A boilerplate/starter project for quickly building RESTful APIs using Node.js, Express, and Mongoose.
+A pluggable, OpenAI-compatible gateway that enables Dyad (or any OpenAI-compatible client) to communicate with CLI agents, local model servers, and vendor SDKs through a unified `/v1` API surface.
 
-By running a single command, you will get a production-ready Node.js app installed and fully configured on your machine. The app comes with many built-in features, such as authentication using JWT, request validation, unit and integration tests, continuous integration, docker support, API documentation, pagination, etc. For more details, check the features list below.
+The backend provides protocol translation, converting OpenAI-style requests into calls to various adapter types (CLI spawning, HTTP SDKs, proxies, local models) while maintaining full OpenAI API compatibility for seamless integration.
 
 ## Quick Start
 
-To create a project, simply run:
+### Prerequisites
 
-```bash
-npx create-nodejs-express-app <project-name>
-```
+- Node.js (>=18.0.0)
+- MongoDB (>=5.0)
+- Redis (optional, for caching and rate limiting)
 
-Or
-
-```bash
-npm init nodejs-express-app <project-name>
-```
-
-## Manual Installation
-
-If you would still prefer to do the installation manually, follow these steps:
-
-Clone the repo:
-
-```bash
-git clone --depth 1 https://github.com/hagopj13/node-express-boilerplate.git
-cd node-express-boilerplate
-npx rimraf ./.git
-```
+### Installation
 
 Install the dependencies:
 
 ```bash
-yarn install
+cd backend
+npm install
 ```
 
-Set the environment variables:
+Set up environment variables:
 
 ```bash
 cp .env.example .env
-
-# open .env and modify the environment variables (if needed)
+# Edit .env with your configuration
 ```
+
+### Development
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The gateway will be available at `http://localhost:3000` with OpenAI-compatible endpoints at `/v1/*`.
 
 ## Table of Contents
 
@@ -64,377 +58,990 @@ cp .env.example .env
 - [Linting](#linting)
 - [Contributing](#contributing)
 
-## Features
+## Core Features
 
-- **NoSQL database**: [MongoDB](https://www.mongodb.com) object data modeling using [Mongoose](https://mongoosejs.com)
-- **Authentication and authorization**: using [passport](http://www.passportjs.org)
-- **Validation**: request data validation using [Joi](https://github.com/hapijs/joi)
-- **Logging**: using [winston](https://github.com/winstonjs/winston) and [morgan](https://github.com/expressjs/morgan)
-- **Testing**: unit and integration tests using [Jest](https://jestjs.io)
-- **Error handling**: centralized error handling mechanism
-- **API documentation**: with [swagger-jsdoc](https://github.com/Surnet/swagger-jsdoc) and [swagger-ui-express](https://github.com/scottie1984/swagger-ui-express)
-- **Process management**: advanced production process management using [PM2](https://pm2.keymetrics.io)
-- **Dependency management**: with [Yarn](https://yarnpkg.com)
-- **Environment variables**: using [dotenv](https://github.com/motdotla/dotenv) and [cross-env](https://github.com/kentcdodds/cross-env#readme)
-- **Security**: set security HTTP headers using [helmet](https://helmetjs.github.io)
-- **Santizing**: sanitize request data against xss and query injection
-- **CORS**: Cross-Origin Resource-Sharing enabled using [cors](https://github.com/expressjs/cors)
-- **Compression**: gzip compression with [compression](https://github.com/expressjs/compression)
-- **CI**: continuous integration with [Travis CI](https://travis-ci.org)
-- **Docker support**
-- **Code coverage**: using [coveralls](https://coveralls.io)
-- **Code quality**: with [Codacy](https://www.codacy.com)
-- **Git hooks**: with [husky](https://github.com/typicode/husky) and [lint-staged](https://github.com/okonet/lint-staged)
-- **Linting**: with [ESLint](https://eslint.org) and [Prettier](https://prettier.io)
-- **Editor config**: consistent editor configuration using [EditorConfig](https://editorconfig.org)
+### Gateway Capabilities
+- **OpenAI API Compatibility**: Full `/v1/chat/completions`, `/v1/models`, `/v1/embeddings` endpoint support
+- **Pluggable Adapter System**: Support for CLI spawning, HTTP SDKs, proxy, and local model adapters
+- **Provider Management**: Dynamic registration and configuration of AI providers
+- **Request Routing**: Intelligent model-to-provider mapping with fallback support
+- **Streaming Support**: Real-time response streaming for chat completions
+
+### Infrastructure & Operations
+- **MongoDB Integration**: Provider registry and configuration persistence using [Mongoose](https://mongoosejs.com)
+- **Authentication & Authorization**: JWT-based auth with API key management using [Passport.js](http://www.passportjs.org)
+- **Request Validation**: Comprehensive input validation using [Joi](https://github.com/hapijs/joi)
+- **Monitoring & Logging**: Structured logging with [Winston](https://github.com/winstonjs/winston) and HTTP logging with [Morgan](https://github.com/expressjs/morgan)
+- **Health Checks**: Provider health monitoring with circuit breaker patterns
+- **Rate Limiting**: Configurable rate limiting per API key and provider
+- **Caching**: Multi-level caching with Redis support
+
+### Security & Performance
+- **Security Headers**: HTTP security headers using [Helmet](https://helmetjs.github.io)
+- **Input Sanitization**: XSS and injection protection with sanitization middleware
+- **CORS Support**: Cross-Origin Resource-Sharing enabled using [cors](https://github.com/expressjs/cors)
+- **Compression**: Gzip compression with [compression](https://github.com/expressjs/compression)
+- **Connection Pooling**: Optimized database and HTTP connection management
+- **Circuit Breakers**: Fault tolerance with automatic failover
+
+### Development & Deployment
+- **Testing Suite**: Unit and integration tests using [Jest](https://jestjs.io)
+- **Process Management**: Production deployment with [PM2](https://pm2.keymetrics.io)
+- **Docker Support**: Containerized deployment with Docker Compose
+- **Code Quality**: [ESLint](https://eslint.org) (Airbnb config) and [Prettier](https://prettier.io) formatting
+- **Git Hooks**: Pre-commit validation with [Husky](https://github.com/typicode/husky) and [lint-staged](https://github.com/okonet/lint-staged)
 
 ## Commands
 
-Running locally:
-
+### Development
 ```bash
-yarn dev
+# Start development server with hot reload
+npm run dev
+
+# Start production server
+npm start
+
+# Start with PM2 process manager
+npm run start:pm2
 ```
 
-Running in production:
-
+### Testing
 ```bash
-yarn start
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run test coverage report
+npm run coverage
+
+# Run integration tests
+npm run test:integration
+
+# Run performance tests
+npm run test:performance
 ```
 
-Testing:
-
+### Docker
 ```bash
-# run all tests
-yarn test
+# Development container
+npm run docker:dev
 
-# run all tests in watch mode
-yarn test:watch
+# Production container
+npm run docker:prod
 
-# run test coverage
-yarn coverage
+# Test container
+npm run docker:test
+
+# Full stack with dependencies
+docker-compose up -d
 ```
 
-Docker:
-
+### Code Quality
 ```bash
-# run docker container in development mode
-yarn docker:dev
+# Run ESLint
+npm run lint
 
-# run docker container in production mode
-yarn docker:prod
+# Auto-fix ESLint issues
+npm run lint:fix
 
-# run all tests in a docker container
-yarn docker:test
+# Check Prettier formatting
+npm run prettier
+
+# Auto-format with Prettier
+npm run prettier:fix
 ```
 
-Linting:
-
+### Database
 ```bash
-# run ESLint
-yarn lint
+# Run database migrations
+npm run migrate
 
-# fix ESLint errors
-yarn lint:fix
+# Seed development data
+npm run seed
 
-# run prettier
-yarn prettier
-
-# fix prettier errors
-yarn prettier:fix
+# Reset database
+npm run db:reset
 ```
 
 ## Environment Variables
 
-The environment variables can be found and modified in the `.env` file. They come with these default values:
+Configure the gateway using environment variables in the `.env` file:
 
 ```bash
-# Port number
+# Server Configuration
 PORT=3000
+NODE_ENV=development
 
-# URL of the Mongo DB
-MONGODB_URL=mongodb://127.0.0.1:27017/node-boilerplate
+# Database
+MONGODB_URL=mongodb://127.0.0.1:27017/dyad-gateway
+REDIS_URL=redis://127.0.0.1:6379
 
-# JWT
-# JWT secret key
-JWT_SECRET=thisisasamplesecret
-# Number of minutes after which an access token expires
-JWT_ACCESS_EXPIRATION_MINUTES=30
-# Number of days after which a refresh token expires
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key
+JWT_ACCESS_EXPIRATION_MINUTES=60
 JWT_REFRESH_EXPIRATION_DAYS=30
 
-# SMTP configuration options for the email service
-# For testing, you can use a fake SMTP service like Ethereal: https://ethereal.email/create
-SMTP_HOST=email-server
-SMTP_PORT=587
-SMTP_USERNAME=email-server-username
-SMTP_PASSWORD=email-server-password
-EMAIL_FROM=support@yourapp.com
+# API Configuration
+API_VERSION=v1
+MAX_REQUEST_SIZE=10mb
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Provider Configuration
+DEFAULT_TIMEOUT_MS=30000
+MAX_RETRIES=3
+CIRCUIT_BREAKER_THRESHOLD=5
+CIRCUIT_BREAKER_TIMEOUT_MS=60000
+
+# Monitoring & Logging
+LOG_LEVEL=info
+ENABLE_REQUEST_LOGGING=true
+METRICS_ENABLED=true
+HEALTH_CHECK_INTERVAL_MS=30000
+
+# Security
+CORS_ORIGIN=*
+HELMET_ENABLED=true
+API_KEY_PREFIX=sk-dyad-
+
+# Optional: External Services
+OPENAI_API_KEY=your-openai-key
+ANTHROPIC_API_KEY=your-anthropic-key
 ```
 
 ## Project Structure
 
 ```
-src\
- |--config\         # Environment variables and configuration related things
- |--controllers\    # Route controllers (controller layer)
- |--docs\           # Swagger files
- |--middlewares\    # Custom express middlewares
- |--models\         # Mongoose models (data layer)
- |--routes\         # Routes
- |--services\       # Business logic (service layer)
- |--utils\          # Utility classes and functions
- |--validations\    # Request data validation schemas
- |--app.js          # Express app
- |--index.js        # App entry point
+backend/
+├── src/
+│   ├── adapters/           # Provider adapter implementations
+│   │   ├── spawn-cli.js    # CLI spawning adapter
+│   │   ├── http-sdk.js     # HTTP SDK adapter
+│   │   ├── proxy.js        # Proxy adapter
+│   │   └── local.js        # Local model adapter
+│   ├── config/             # Configuration and setup
+│   │   ├── config.js       # Environment-based configuration
+│   │   ├── database.js     # MongoDB connection setup
+│   │   ├── logger.js       # Winston logger configuration
+│   │   ├── passport.js     # Authentication strategies
+│   │   └── redis.js        # Redis connection setup
+│   ├── controllers/        # HTTP request handlers
+│   │   ├── auth.controller.js
+│   │   ├── chat.controller.js
+│   │   ├── models.controller.js
+│   │   ├── providers.controller.js
+│   │   └── health.controller.js
+│   ├── middlewares/        # Express middleware
+│   │   ├── auth.js         # Authentication middleware
+│   │   ├── rateLimiter.js  # Rate limiting
+│   │   ├── validate.js     # Request validation
+│   │   ├── errorHandler.js # Error handling
+│   │   └── metrics.js      # Metrics collection
+│   ├── models/             # Mongoose schemas
+│   │   ├── provider.model.js
+│   │   ├── apiKey.model.js
+│   │   ├── user.model.js
+│   │   └── plugins/        # Reusable model plugins
+│   ├── routes/             # API route definitions
+│   │   ├── v1/             # OpenAI-compatible v1 routes
+│   │   └── admin/          # Admin API routes
+│   ├── services/           # Business logic layer
+│   │   ├── gateway.service.js
+│   │   ├── provider.service.js
+│   │   ├── auth.service.js
+│   │   ├── cache.service.js
+│   │   └── health.service.js
+│   ├── utils/              # Utility functions
+│   │   ├── ApiError.js     # Custom error classes
+│   │   ├── catchAsync.js   # Async error wrapper
+│   │   ├── circuitBreaker.js
+│   │   └── openai.js       # OpenAI format utilities
+│   ├── validations/        # Joi validation schemas
+│   │   ├── chat.validation.js
+│   │   ├── provider.validation.js
+│   │   └── auth.validation.js
+│   ├── app.js              # Express app configuration
+│   └── index.js            # Application entry point
+├── tests/                  # Test suites
+├── docs/                   # API documentation
+├── docker-compose.yml      # Development environment
+├── Dockerfile              # Container definition
+├── ecosystem.config.json   # PM2 configuration
+└── package.json            # Dependencies and scripts
 ```
 
 ## API Documentation
 
-To view the list of available APIs and their specifications, run the server and go to `http://localhost:3000/v1/docs` in your browser. This documentation page is automatically generated using the [swagger](https://swagger.io/) definitions written as comments in the route files.
+The gateway provides OpenAI-compatible endpoints for seamless integration. View the complete API documentation at `http://localhost:3000/docs` when running the server.
 
-### API Endpoints
+### OpenAI-Compatible Endpoints
 
-List of available routes:
+**Chat Completions**:
+```bash
+POST /v1/chat/completions
+```
+Standard OpenAI chat completions with streaming support.
 
-**Auth routes**:\
-`POST /v1/auth/register` - register\
-`POST /v1/auth/login` - login\
-`POST /v1/auth/refresh-tokens` - refresh auth tokens\
-`POST /v1/auth/forgot-password` - send reset password email\
-`POST /v1/auth/reset-password` - reset password\
-`POST /v1/auth/send-verification-email` - send verification email\
-`POST /v1/auth/verify-email` - verify email
+**Models**:
+```bash
+GET /v1/models
+GET /v1/models/{model_id}
+```
+List available models and get model details.
 
-**User routes**:\
-`POST /v1/users` - create a user\
-`GET /v1/users` - get all users\
-`GET /v1/users/:userId` - get user\
-`PATCH /v1/users/:userId` - update user\
-`DELETE /v1/users/:userId` - delete user
+**Embeddings**:
+```bash
+POST /v1/embeddings
+```
+Generate embeddings using configured providers.
+
+### Admin API Endpoints
+
+**Provider Management**:
+```bash
+GET /admin/providers          # List all providers
+POST /admin/providers         # Create new provider
+GET /admin/providers/:id      # Get provider details
+PUT /admin/providers/:id      # Update provider
+DELETE /admin/providers/:id   # Delete provider
+POST /admin/providers/:id/test # Test provider health
+```
+
+**API Key Management**:
+```bash
+GET /admin/api-keys           # List API keys
+POST /admin/api-keys          # Create new API key
+DELETE /admin/api-keys/:id    # Revoke API key
+```
+
+**System Health**:
+```bash
+GET /health                   # Basic health check
+GET /health/detailed          # Detailed system status
+GET /metrics                  # Prometheus metrics
+```
+
+### Example Usage
+
+```bash
+# Chat completion request
+curl -X POST http://localhost:3000/v1/chat/completions \
+  -H "Authorization: Bearer sk-dyad-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-3.5-turbo",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 100
+  }'
+
+# List available models
+curl -X GET http://localhost:3000/v1/models \
+  -H "Authorization: Bearer sk-dyad-your-api-key"
+```
 
 ## Error Handling
 
-The app has a centralized error handling mechanism.
+The gateway implements comprehensive error handling with OpenAI-compatible error responses and detailed logging.
 
-Controllers should try to catch the errors and forward them to the error handling middleware (by calling `next(error)`). For convenience, you can also wrap the controller inside the catchAsync utility wrapper, which forwards the error.
+### Error Response Format
 
-```javascript
-const catchAsync = require('../utils/catchAsync');
-
-const controller = catchAsync(async (req, res) => {
-  // this error will be forwarded to the error handling middleware
-  throw new Error('Something wrong happened');
-});
-```
-
-The error handling middleware sends an error response, which has the following format:
+All errors follow the OpenAI API error format:
 
 ```json
 {
-  "code": 404,
-  "message": "Not found"
+  "error": {
+    "message": "The model 'gpt-4' does not exist",
+    "type": "invalid_request_error",
+    "param": "model",
+    "code": "model_not_found"
+  }
 }
 ```
 
-When running in development mode, the error response also contains the error stack.
+### Error Types
 
-The app has a utility ApiError class to which you can attach a response code and a message, and then throw it from anywhere (catchAsync will catch it).
+- **Authentication Errors** (401): Invalid or missing API key
+- **Authorization Errors** (403): Insufficient permissions
+- **Validation Errors** (400): Invalid request parameters
+- **Rate Limit Errors** (429): Rate limit exceeded
+- **Provider Errors** (502/503): Upstream provider failures
+- **Internal Errors** (500): System errors
 
-For example, if you are trying to get a user from the DB who is not found, and you want to send a 404 error, the code should look something like:
+### Circuit Breaker Pattern
+
+The gateway implements circuit breakers for provider fault tolerance:
 
 ```javascript
-const httpStatus = require('http-status');
-const ApiError = require('../utils/ApiError');
-const User = require('../models/User');
+const CircuitBreaker = require('../utils/circuitBreaker');
 
-const getUser = async (userId) => {
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
-  }
+const providerCircuitBreaker = new CircuitBreaker({
+  threshold: 5,        // Open after 5 failures
+  timeout: 60000,      // Stay open for 60 seconds
+  resetTimeout: 30000  // Half-open after 30 seconds
+});
+```
+
+### Custom Error Classes
+
+```javascript
+const ApiError = require('../utils/ApiError');
+
+// Provider-specific errors
+throw new ApiError(502, 'Provider unavailable', 'provider_error');
+
+// Rate limiting errors
+throw new ApiError(429, 'Rate limit exceeded', 'rate_limit_exceeded');
+
+// Model not found errors
+throw new ApiError(400, 'Model not found', 'model_not_found');
+```
+
+## Request Validation
+
+All API requests are validated using [Joi](https://joi.dev/) schemas to ensure OpenAI API compatibility and data integrity.
+
+### Chat Completion Validation
+
+```javascript
+const chatCompletionSchema = {
+  body: Joi.object().keys({
+    model: Joi.string().required(),
+    messages: Joi.array().items(
+      Joi.object().keys({
+        role: Joi.string().valid('system', 'user', 'assistant').required(),
+        content: Joi.string().required()
+      })
+    ).min(1).required(),
+    max_tokens: Joi.number().integer().min(1).max(4096),
+    temperature: Joi.number().min(0).max(2),
+    stream: Joi.boolean(),
+    stop: Joi.alternatives().try(
+      Joi.string(),
+      Joi.array().items(Joi.string()).max(4)
+    )
+  })
 };
 ```
 
-## Validation
+### Provider Configuration Validation
 
-Request data is validated using [Joi](https://joi.dev/). Check the [documentation](https://joi.dev/api/) for more details on how to write Joi validation schemas.
+```javascript
+const providerSchema = {
+  body: Joi.object().keys({
+    name: Joi.string().required(),
+    type: Joi.string().valid('spawn-cli', 'http-sdk', 'proxy', 'local').required(),
+    config: Joi.object().keys({
+      endpoint: Joi.string().uri(),
+      timeout: Joi.number().integer().min(1000).max(300000),
+      apiKey: Joi.string(),
+      command: Joi.string(),
+      args: Joi.array().items(Joi.string())
+    }),
+    models: Joi.array().items(
+      Joi.object().keys({
+        modelId: Joi.string().required(),
+        adapterModelId: Joi.string(),
+        maxTokens: Joi.number().integer().min(1)
+      })
+    ).required()
+  })
+};
+```
 
-The validation schemas are defined in the `src/validations` directory and are used in the routes by providing them as parameters to the `validate` middleware.
+### Usage in Routes
 
 ```javascript
 const express = require('express');
 const validate = require('../../middlewares/validate');
-const userValidation = require('../../validations/user.validation');
-const userController = require('../../controllers/user.controller');
+const chatValidation = require('../../validations/chat.validation');
+const chatController = require('../../controllers/chat.controller');
 
 const router = express.Router();
 
-router.post('/users', validate(userValidation.createUser), userController.createUser);
-```
-
-## Authentication
-
-To require authentication for certain routes, you can use the `auth` middleware.
-
-```javascript
-const express = require('express');
-const auth = require('../../middlewares/auth');
-const userController = require('../../controllers/user.controller');
-
-const router = express.Router();
-
-router.post('/users', auth(), userController.createUser);
-```
-
-These routes require a valid JWT access token in the Authorization request header using the Bearer schema. If the request does not contain a valid access token, an Unauthorized (401) error is thrown.
-
-**Generating Access Tokens**:
-
-An access token can be generated by making a successful call to the register (`POST /v1/auth/register`) or login (`POST /v1/auth/login`) endpoints. The response of these endpoints also contains refresh tokens (explained below).
-
-An access token is valid for 30 minutes. You can modify this expiration time by changing the `JWT_ACCESS_EXPIRATION_MINUTES` environment variable in the .env file.
-
-**Refreshing Access Tokens**:
-
-After the access token expires, a new access token can be generated, by making a call to the refresh token endpoint (`POST /v1/auth/refresh-tokens`) and sending along a valid refresh token in the request body. This call returns a new access token and a new refresh token.
-
-A refresh token is valid for 30 days. You can modify this expiration time by changing the `JWT_REFRESH_EXPIRATION_DAYS` environment variable in the .env file.
-
-## Authorization
-
-The `auth` middleware can also be used to require certain rights/permissions to access a route.
-
-```javascript
-const express = require('express');
-const auth = require('../../middlewares/auth');
-const userController = require('../../controllers/user.controller');
-
-const router = express.Router();
-
-router.post('/users', auth('manageUsers'), userController.createUser);
-```
-
-In the example above, an authenticated user can access this route only if that user has the `manageUsers` permission.
-
-The permissions are role-based. You can view the permissions/rights of each role in the `src/config/roles.js` file.
-
-If the user making the request does not have the required permissions to access this route, a Forbidden (403) error is thrown.
-
-## Logging
-
-Import the logger from `src/config/logger.js`. It is using the [Winston](https://github.com/winstonjs/winston) logging library.
-
-Logging should be done according to the following severity levels (ascending order from most important to least important):
-
-```javascript
-const logger = require('<path to src>/config/logger');
-
-logger.error('message'); // level 0
-logger.warn('message'); // level 1
-logger.info('message'); // level 2
-logger.http('message'); // level 3
-logger.verbose('message'); // level 4
-logger.debug('message'); // level 5
-```
-
-In development mode, log messages of all severity levels will be printed to the console.
-
-In production mode, only `info`, `warn`, and `error` logs will be printed to the console.\
-It is up to the server (or process manager) to actually read them from the console and store them in log files.\
-This app uses pm2 in production mode, which is already configured to store the logs in log files.
-
-Note: API request information (request url, response code, timestamp, etc.) are also automatically logged (using [morgan](https://github.com/expressjs/morgan)).
-
-## Custom Mongoose Plugins
-
-The app also contains 2 custom mongoose plugins that you can attach to any mongoose model schema. You can find the plugins in `src/models/plugins`.
-
-```javascript
-const mongoose = require('mongoose');
-const { toJSON, paginate } = require('./plugins');
-
-const userSchema = mongoose.Schema(
-  {
-    /* schema definition here */
-  },
-  { timestamps: true }
+router.post('/chat/completions', 
+  validate(chatValidation.chatCompletion), 
+  chatController.createChatCompletion
 );
-
-userSchema.plugin(toJSON);
-userSchema.plugin(paginate);
-
-const User = mongoose.model('User', userSchema);
 ```
 
-### toJSON
+## Authentication & Authorization
 
-The toJSON plugin applies the following changes in the toJSON transform call:
+The gateway uses API key-based authentication compatible with OpenAI's authentication model.
 
-- removes \_\_v, createdAt, updatedAt, and any schema path that has private: true
-- replaces \_id with id
+### API Key Authentication
 
-### paginate
+All requests to `/v1/*` endpoints require a valid API key in the Authorization header:
 
-The paginate plugin adds the `paginate` static method to the mongoose schema.
+```bash
+Authorization: Bearer sk-dyad-your-api-key-here
+```
 
-Adding this plugin to the `User` model schema will allow you to do the following:
+### API Key Management
+
+API keys are managed through the admin interface and stored securely with bcrypt hashing:
 
 ```javascript
-const queryUsers = async (filter, options) => {
-  const users = await User.paginate(filter, options);
-  return users;
+// Create API key
+const apiKey = await ApiKeyService.create({
+  name: 'My Application Key',
+  permissions: ['chat', 'embeddings'],
+  allowedModels: ['gpt-3.5-turbo', 'text-embedding-ada-002'],
+  rateLimit: {
+    requestsPerMinute: 60,
+    tokensPerMinute: 10000
+  }
+});
+```
+
+### Permission System
+
+API keys support granular permissions:
+
+- **chat**: Access to chat completion endpoints
+- **embeddings**: Access to embedding endpoints  
+- **models**: Access to model listing endpoints
+- **admin**: Access to admin endpoints (provider management)
+
+### Rate Limiting
+
+Each API key has configurable rate limits:
+
+```javascript
+const rateLimitConfig = {
+  windowMs: 60 * 1000,           // 1 minute window
+  maxRequests: 100,              // Max requests per window
+  maxTokens: 50000,              // Max tokens per window
+  skipSuccessfulRequests: false,
+  skipFailedRequests: false
 };
 ```
 
-The `filter` param is a regular mongo filter.
+### Usage Tracking
 
-The `options` param can have the following (optional) fields:
+The gateway tracks API key usage for billing and monitoring:
 
 ```javascript
-const options = {
-  sortBy: 'name:desc', // sort order
-  limit: 5, // maximum results per page
-  page: 2, // page number
+const usage = {
+  totalRequests: 1250,
+  totalTokens: 45000,
+  lastUsed: new Date(),
+  requestsToday: 150,
+  tokensToday: 5000
 };
 ```
 
-The plugin also supports sorting by multiple criteria (separated by a comma): `sortBy: name:desc,role:asc`
+### Admin Authentication
 
-The `paginate` method returns a Promise, which fulfills with an object having the following properties:
+Admin endpoints use JWT tokens for user authentication:
 
-```json
+```bash
+# Login to get JWT token
+POST /admin/auth/login
 {
-  "results": [],
-  "page": 2,
-  "limit": 5,
-  "totalPages": 10,
-  "totalResults": 48
+  "email": "admin@example.com",
+  "password": "secure-password"
+}
+
+# Use JWT token for admin operations
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+## Provider Adapters
+
+The gateway supports multiple adapter types for connecting to different AI providers and services.
+
+### Adapter Types
+
+#### 1. HTTP SDK Adapter
+For providers with HTTP APIs (OpenAI, Anthropic, etc.):
+
+```javascript
+{
+  "type": "http-sdk",
+  "config": {
+    "endpoint": "https://api.openai.com/v1",
+    "apiKey": "sk-...",
+    "timeout": 30000
+  },
+  "models": [
+    {
+      "modelId": "gpt-3.5-turbo",
+      "adapterModelId": "gpt-3.5-turbo",
+      "maxTokens": 4096
+    }
+  ]
 }
 ```
 
-## Linting
+#### 2. CLI Spawning Adapter
+For command-line AI tools:
 
-Linting is done using [ESLint](https://eslint.org/) and [Prettier](https://prettier.io).
+```javascript
+{
+  "type": "spawn-cli",
+  "config": {
+    "command": "ollama",
+    "args": ["run", "{model}"],
+    "timeout": 60000,
+    "workingDirectory": "/opt/ollama"
+  },
+  "models": [
+    {
+      "modelId": "llama2",
+      "adapterModelId": "llama2:7b",
+      "maxTokens": 2048
+    }
+  ]
+}
+```
 
-In this app, ESLint is configured to follow the [Airbnb JavaScript style guide](https://github.com/airbnb/javascript/tree/master/packages/eslint-config-airbnb-base) with some modifications. It also extends [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier) to turn off all rules that are unnecessary or might conflict with Prettier.
+#### 3. Proxy Adapter
+For forwarding requests to other gateways:
 
-To modify the ESLint configuration, update the `.eslintrc.json` file. To modify the Prettier configuration, update the `.prettierrc.json` file.
+```javascript
+{
+  "type": "proxy",
+  "config": {
+    "endpoint": "https://other-gateway.com/v1",
+    "apiKey": "gateway-key",
+    "preserveHeaders": true
+  }
+}
+```
 
-To prevent a certain file or directory from being linted, add it to `.eslintignore` and `.prettierignore`.
+#### 4. Local Model Adapter
+For locally hosted models:
 
-To maintain a consistent coding style across different IDEs, the project contains `.editorconfig`
+```javascript
+{
+  "type": "local",
+  "config": {
+    "endpoint": "http://localhost:8080",
+    "modelPath": "/models/llama2",
+    "gpuLayers": 32
+  }
+}
+```
+
+### Provider Health Monitoring
+
+Each provider is continuously monitored for health and availability:
+
+```javascript
+const healthStatus = {
+  status: 'healthy',        // healthy, unhealthy, degraded
+  lastCheck: new Date(),
+  responseTime: 250,        // milliseconds
+  errorRate: 0.02,         // 2% error rate
+  availability: 99.8       // 99.8% uptime
+};
+```
+
+## Monitoring & Logging
+
+The gateway provides comprehensive monitoring and logging capabilities for operational visibility.
+
+### Structured Logging
+
+Uses [Winston](https://github.com/winstonjs/winston) for structured logging with multiple transports:
+
+```javascript
+const logger = require('../config/logger');
+
+// Log levels (most to least important)
+logger.error('Provider connection failed', { providerId, error: err.message });
+logger.warn('High response time detected', { providerId, responseTime: 5000 });
+logger.info('Chat completion processed', { model, tokens: 150, duration: 1200 });
+logger.http('Request processed', { method: 'POST', url: '/v1/chat/completions' });
+logger.debug('Cache hit', { key: 'provider:openai:models' });
+```
+
+### Request Logging
+
+Automatic HTTP request logging with [Morgan](https://github.com/expressjs/morgan):
+
+```
+POST /v1/chat/completions 200 1247ms - 2.1kb
+GET /v1/models 200 45ms - 0.8kb
+POST /admin/providers 201 156ms - 0.3kb
+```
+
+### Metrics Collection
+
+Prometheus-compatible metrics for monitoring:
+
+```javascript
+// Request metrics
+gateway_requests_total{method="POST",endpoint="/v1/chat/completions",status="200"} 1250
+gateway_request_duration_seconds{method="POST",endpoint="/v1/chat/completions"} 1.247
+
+// Provider metrics  
+gateway_provider_requests_total{provider="openai",model="gpt-3.5-turbo"} 850
+gateway_provider_errors_total{provider="openai",error_type="timeout"} 12
+
+// Token usage metrics
+gateway_tokens_processed_total{model="gpt-3.5-turbo",type="input"} 45000
+gateway_tokens_processed_total{model="gpt-3.5-turbo",type="output"} 12000
+```
+
+### Health Checks
+
+Multiple health check endpoints:
+
+```bash
+# Basic health check
+GET /health
+{"status": "ok", "timestamp": "2024-01-15T10:30:00Z"}
+
+# Detailed system status
+GET /health/detailed
+{
+  "status": "healthy",
+  "checks": {
+    "database": {"status": "healthy", "responseTime": 45},
+    "redis": {"status": "healthy", "responseTime": 12},
+    "providers": {"healthy": 3, "total": 4, "percentage": 75}
+  }
+}
+
+# Prometheus metrics
+GET /metrics
+```
+
+### Log Configuration
+
+Environment-based log configuration:
+
+```bash
+# Development: Console output with colors
+LOG_LEVEL=debug
+LOG_FORMAT=dev
+
+# Production: JSON format for log aggregation
+LOG_LEVEL=info
+LOG_FORMAT=json
+LOG_FILE=/var/log/dyad-gateway.log
+```
+
+## Database Models & Plugins
+
+The gateway uses MongoDB with Mongoose for data persistence, featuring custom plugins for enhanced functionality.
+
+### Core Models
+
+#### Provider Model
+Stores AI provider configurations and health status:
+
+```javascript
+const providerSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  type: { type: String, enum: ['spawn-cli', 'http-sdk', 'proxy', 'local'] },
+  enabled: { type: Boolean, default: true },
+  config: { type: Map, of: mongoose.Schema.Types.Mixed },
+  models: [{
+    modelId: String,
+    adapterModelId: String,
+    maxTokens: Number,
+    supportsStreaming: Boolean
+  }],
+  healthStatus: {
+    status: { type: String, enum: ['healthy', 'unhealthy', 'degraded'] },
+    lastCheck: Date,
+    responseTime: Number,
+    errorRate: Number
+  }
+}, { timestamps: true });
+```
+
+#### API Key Model
+Manages API key authentication and usage tracking:
+
+```javascript
+const apiKeySchema = new mongoose.Schema({
+  name: String,
+  keyHash: { type: String, required: true, unique: true },
+  keyPrefix: String,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  permissions: [String],
+  allowedModels: [String],
+  rateLimit: {
+    requestsPerMinute: Number,
+    tokensPerMinute: Number
+  },
+  usage: {
+    totalRequests: { type: Number, default: 0 },
+    totalTokens: { type: Number, default: 0 },
+    lastUsed: Date
+  },
+  enabled: { type: Boolean, default: true },
+  expiresAt: Date
+}, { timestamps: true });
+```
+
+### Custom Mongoose Plugins
+
+#### toJSON Plugin
+Transforms model output for API responses:
+
+```javascript
+// Removes internal fields and transforms _id to id
+userSchema.plugin(toJSON);
+
+// Result:
+{
+  "id": "507f1f77bcf86cd799439011",
+  "name": "OpenAI Provider",
+  "type": "http-sdk"
+  // __v, _id, and private fields removed
+}
+```
+
+#### Paginate Plugin
+Adds pagination support to models:
+
+```javascript
+providerSchema.plugin(paginate);
+
+// Usage:
+const providers = await Provider.paginate(
+  { enabled: true },
+  { 
+    page: 2, 
+    limit: 10, 
+    sortBy: 'name:asc',
+    populate: 'models'
+  }
+);
+
+// Returns:
+{
+  "results": [...],
+  "page": 2,
+  "limit": 10,
+  "totalPages": 5,
+  "totalResults": 47,
+  "hasNextPage": true,
+  "hasPrevPage": true
+}
+```
+
+#### Health Tracking Plugin
+Automatically tracks model health metrics:
+
+```javascript
+providerSchema.plugin(healthTracking);
+
+// Automatically updates health status on operations
+await provider.recordHealthCheck('healthy', 250); // responseTime in ms
+await provider.recordError('timeout');
+```
+
+### Database Indexing
+
+Optimized indexes for performance:
+
+```javascript
+// Provider indexes
+providerSchema.index({ type: 1, enabled: 1 });
+providerSchema.index({ 'models.modelId': 1 });
+providerSchema.index({ 'healthStatus.status': 1 });
+
+// API Key indexes
+apiKeySchema.index({ keyHash: 1 }, { unique: true });
+apiKeySchema.index({ userId: 1, enabled: 1 });
+apiKeySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+```
+
+## Development & Deployment
+
+### Code Quality
+
+The project uses [ESLint](https://eslint.org/) and [Prettier](https://prettier.io) for code quality and formatting:
+
+- **ESLint**: Follows [Airbnb JavaScript style guide](https://github.com/airbnb/javascript) with gateway-specific modifications
+- **Prettier**: Consistent code formatting across the codebase
+- **EditorConfig**: Consistent editor settings across different IDEs
+
+Configuration files:
+- `.eslintrc.json` - ESLint rules and plugins
+- `.prettierrc.json` - Prettier formatting options
+- `.editorconfig` - Editor configuration
+- `.eslintignore` / `.prettierignore` - Files to exclude from linting
+
+### Docker Deployment
+
+Multi-stage Docker build for optimized production images:
+
+```dockerfile
+# Development stage
+FROM node:18-alpine AS development
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
+# Production stage
+FROM node:18-alpine AS production
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+### Docker Compose
+
+Full development environment with dependencies:
+
+```yaml
+version: '3.8'
+services:
+  gateway:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URL=mongodb://mongo:27017/dyad-gateway
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongo
+      - redis
+  
+  mongo:
+    image: mongo:5.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+```
+
+### Production Deployment
+
+PM2 ecosystem configuration for production:
+
+```javascript
+// ecosystem.config.json
+{
+  "apps": [{
+    "name": "dyad-gateway",
+    "script": "src/index.js",
+    "instances": "max",
+    "exec_mode": "cluster",
+    "env": {
+      "NODE_ENV": "production",
+      "PORT": 3000
+    },
+    "error_file": "./logs/err.log",
+    "out_file": "./logs/out.log",
+    "log_file": "./logs/combined.log",
+    "time": true
+  }]
+}
+```
+
+## Testing
+
+Comprehensive test suite covering unit, integration, and performance testing.
+
+### Test Structure
+
+```
+tests/
+├── unit/                   # Unit tests for individual modules
+│   ├── services/
+│   ├── utils/
+│   └── adapters/
+├── integration/            # API endpoint integration tests
+│   ├── auth.test.js
+│   ├── chat.test.js
+│   ├── providers.test.js
+│   └── health.test.js
+├── performance/            # Load and performance tests
+│   ├── load-test.js
+│   └── stress-test.js
+├── fixtures/               # Test data and mocks
+└── utils/                  # Test utilities and setup
+```
+
+### Running Tests
+
+```bash
+# All tests
+npm test
+
+# Unit tests only
+npm run test:unit
+
+# Integration tests only
+npm run test:integration
+
+# Performance tests
+npm run test:performance
+
+# Test coverage
+npm run coverage
+
+# Watch mode for development
+npm run test:watch
+```
+
+### Test Examples
+
+```javascript
+// Integration test example
+describe('POST /v1/chat/completions', () => {
+  it('should process chat completion successfully', async () => {
+    const response = await request(app)
+      .post('/v1/chat/completions')
+      .set('Authorization', `Bearer ${validApiKey}`)
+      .send({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: 'Hello' }]
+      })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      id: expect.any(String),
+      object: 'chat.completion',
+      choices: expect.any(Array)
+    });
+  });
+});
+```
 
 ## Contributing
 
-Contributions are more than welcome! Please check out the [contributing guide](CONTRIBUTING.md).
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-## Inspirations
+### Development Workflow
 
-- [danielfsousa/express-rest-es2017-boilerplate](https://github.com/danielfsousa/express-rest-es2017-boilerplate)
-- [madhums/node-express-mongoose](https://github.com/madhums/node-express-mongoose)
-- [kunalkapadia/express-mongoose-es6-rest-api](https://github.com/kunalkapadia/express-mongoose-es6-rest-api)
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and add tests
+4. Run the test suite: `npm test`
+5. Run linting: `npm run lint:fix`
+6. Commit your changes: `git commit -m 'Add amazing feature'`
+7. Push to the branch: `git push origin feature/amazing-feature`
+8. Open a Pull Request
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- 📖 [Documentation](./docs/)
+- 🐛 [Issue Tracker](https://github.com/dyad/gateway/issues)
+- 💬 [Discussions](https://github.com/dyad/gateway/discussions)
+- 📧 [Email Support](mailto:support@dyad.dev)
