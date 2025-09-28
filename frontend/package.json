@@ -15,7 +15,14 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:a11y": "vitest run src/test/accessibility.test.tsx",
+    "test:performance": "vitest run src/test/performance.test.tsx",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:all": "npm run test:run && npm run test:a11y && npm run test:performance && npm run test:e2e"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -75,7 +82,9 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.10.2",
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.55.1",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
@@ -91,8 +100,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "jest-axe": "^10.0.0",
     "jsdom": "^27.0.0",
     "lovable-tagger": "^1.1.9",
+    "msw": "^2.11.3",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^3.4.17",
