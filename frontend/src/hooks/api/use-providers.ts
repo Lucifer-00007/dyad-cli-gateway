@@ -184,6 +184,86 @@ export const useTestProvider = () => {
   });
 };
 
+export const useRunProviderTest = () => {
+  return useMutation({
+    mutationKey: ['run-provider-test'],
+    mutationFn: ({ 
+      id, 
+      testRequest 
+    }: { 
+      id: string; 
+      testRequest: Omit<TestRequest, 'id' | 'providerId'> 
+    }) => ProvidersService.runProviderTest(id, testRequest),
+  });
+};
+
+export const useCancelTest = () => {
+  return useMutation({
+    mutationKey: ['cancel-test'],
+    mutationFn: (testId: string) => ProvidersService.cancelTest(testId),
+  });
+};
+
+export const useTestResult = (testId: string | null) => {
+  return useQuery({
+    queryKey: ['test-result', testId],
+    queryFn: () => testId ? ProvidersService.getTestResult(testId) : null,
+    enabled: !!testId,
+    refetchInterval: (data) => {
+      // Keep polling if test is still running
+      return data?.status === 'running' ? 2000 : false;
+    },
+  });
+};
+
+export const useTestHistory = (providerId: string, params?: { page?: number; limit?: number }) => {
+  return useQuery({
+    queryKey: ['test-history', providerId, params],
+    queryFn: () => ProvidersService.getTestHistory(providerId, params),
+    enabled: !!providerId,
+  });
+};
+
+export const useTestTemplates = () => {
+  return useQuery({
+    queryKey: ['test-templates'],
+    queryFn: async () => {
+      // For now, use local templates. In a real implementation,
+      // this would fetch from the API
+      const { testTemplates } = await import('@/lib/test-templates');
+      return testTemplates;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+export const useConfigureHealthCheck = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationKey: ['configure-health-check'],
+    mutationFn: ({ 
+      providerId, 
+      config 
+    }: { 
+      providerId: string; 
+      config: HealthCheckConfig 
+    }) => ProvidersService.configureHealthCheck(providerId, config),
+    onSuccess: (_, { providerId }) => {
+      queryClient.invalidateQueries({ queryKey: ['provider', providerId] });
+    },
+  });
+};
+
+export const useHealthHistory = (providerId: string, params?: { hours?: number }) => {
+  return useQuery({
+    queryKey: ['health-history', providerId, params],
+    queryFn: () => ProvidersService.getHealthHistory(providerId, params),
+    enabled: !!providerId,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+};
+
 export const useToggleProvider = () => {
   const queryClient = useQueryClient();
 

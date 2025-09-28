@@ -39,6 +39,7 @@ import {
   useTestProvider,
   useProviderHealth 
 } from '@/hooks/api/use-providers';
+import { ProviderTestDialog, HealthCheckConfig, TestHistoryViewer } from '@/components/providers';
 import { formatDistanceToNow, format } from 'date-fns';
 
 interface ProviderDetailProps {
@@ -55,6 +56,8 @@ export const ProviderDetail: React.FC<ProviderDetailProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [healthConfigOpen, setHealthConfigOpen] = useState(false);
+  const [testHistoryOpen, setTestHistoryOpen] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [isTestingProvider, setIsTestingProvider] = useState(false);
 
@@ -466,78 +469,30 @@ export const ProviderDetail: React.FC<ProviderDetailProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
-          <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                variant="outline" 
-                disabled={!provider.enabled}
-                onClick={() => setTestDialogOpen(true)}
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Test
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Test Provider</DialogTitle>
-                <DialogDescription>
-                  Run a test request to verify the provider is working correctly.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                <Button 
-                  onClick={handleTest} 
-                  disabled={isTestingProvider}
-                  className="w-full"
-                >
-                  {isTestingProvider ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
-                      Testing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      Run Test
-                    </>
-                  )}
-                </Button>
-                
-                {testResult && (
-                  <Alert variant={testResult.status === 'success' ? 'default' : 'destructive'}>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <div className="space-y-2">
-                        <div>
-                          <strong>Status:</strong> {testResult.status}
-                        </div>
-                        <div>
-                          <strong>Duration:</strong> {testResult.duration}ms
-                        </div>
-                        <div>
-                          <strong>Message:</strong> {testResult.message}
-                        </div>
-                        {testResult.error && (
-                          <div>
-                            <strong>Error:</strong> {testResult.error.message}
-                          </div>
-                        )}
-                        {testResult.testResult && (
-                          <div>
-                            <strong>Response:</strong>
-                            <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">
-                              {JSON.stringify(testResult.testResult, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            variant="outline" 
+            disabled={!provider.enabled}
+            onClick={() => setTestDialogOpen(true)}
+          >
+            <Play className="h-4 w-4 mr-2" />
+            Test Provider
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => setHealthConfigOpen(true)}
+          >
+            <Activity className="h-4 w-4 mr-2" />
+            Health Check
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => setTestHistoryOpen(true)}
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            Test History
+          </Button>
           
           <Button 
             variant="outline" 
@@ -795,6 +750,25 @@ export const ProviderDetail: React.FC<ProviderDetailProps> = ({
 
       <DeleteDialog />
       <ToggleDialog />
+      
+      {/* New comprehensive testing dialogs */}
+      <ProviderTestDialog
+        provider={provider}
+        open={testDialogOpen}
+        onOpenChange={setTestDialogOpen}
+      />
+      
+      <HealthCheckConfig
+        provider={provider}
+        open={healthConfigOpen}
+        onOpenChange={setHealthConfigOpen}
+      />
+      
+      <TestHistoryViewer
+        provider={provider}
+        open={testHistoryOpen}
+        onOpenChange={setTestHistoryOpen}
+      />
     </div>
   );
 };

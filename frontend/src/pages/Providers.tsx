@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useDeleteConfirmation, useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { ProviderTestDialog } from '@/components/providers';
 import { 
   useProviders, 
   useDeleteProvider, 
@@ -35,6 +36,7 @@ const Providers: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testDialogProvider, setTestDialogProvider] = useState<Provider | null>(null);
   
   const { showDeleteConfirmation, ConfirmationDialog: DeleteDialog } = useDeleteConfirmation();
   const { showConfirmation, ConfirmationDialog: ToggleDialog } = useConfirmationDialog();
@@ -117,7 +119,11 @@ const Providers: React.FC = () => {
     });
   };
 
-  const handleTest = async (provider: Provider) => {
+  const handleTest = (provider: Provider) => {
+    setTestDialogProvider(provider);
+  };
+
+  const handleQuickTest = async (provider: Provider) => {
     setTestingProvider(provider.id);
     try {
       const result = await testProviderMutation.mutateAsync({ 
@@ -433,6 +439,15 @@ const Providers: React.FC = () => {
 
       <DeleteDialog />
       <ToggleDialog />
+      
+      {/* Comprehensive test dialog */}
+      {testDialogProvider && (
+        <ProviderTestDialog
+          provider={testDialogProvider}
+          open={!!testDialogProvider}
+          onOpenChange={(open) => !open && setTestDialogProvider(null)}
+        />
+      )}
     </div>
   );
 };

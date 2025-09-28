@@ -98,6 +98,118 @@ export class ProvidersService {
   }
 
   /**
+   * Run comprehensive test with custom request
+   */
+  static async runProviderTest(
+    id: string, 
+    testRequest: Omit<TestRequest, 'id' | 'providerId'>
+  ): Promise<TestResult> {
+    try {
+      const response = await apiClient.post<TestResult>(
+        `${this.BASE_PATH}/${id}/test/comprehensive`,
+        testRequest
+      );
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Cancel running test
+   */
+  static async cancelTest(testId: string): Promise<void> {
+    try {
+      await apiClient.post(`/admin/tests/${testId}/cancel`);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Get test result by ID
+   */
+  static async getTestResult(testId: string): Promise<TestResult> {
+    try {
+      const response = await apiClient.get<TestResult>(`/admin/tests/${testId}`);
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Get test history for a provider
+   */
+  static async getTestHistory(
+    providerId: string,
+    params?: { page?: number; limit?: number }
+  ): Promise<TestHistory> {
+    try {
+      const response = await apiClient.get<TestHistory>(
+        `${this.BASE_PATH}/${providerId}/test-history`,
+        {
+          params: {
+            page: params?.page || 1,
+            limit: params?.limit || 20,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Get available test templates
+   */
+  static async getTestTemplates(): Promise<TestTemplate[]> {
+    try {
+      const response = await apiClient.get<TestTemplate[]>('/admin/test-templates');
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Configure health check settings
+   */
+  static async configureHealthCheck(
+    providerId: string,
+    config: HealthCheckConfig
+  ): Promise<void> {
+    try {
+      await apiClient.put(`${this.BASE_PATH}/${providerId}/health-check`, config);
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
+   * Get health check history
+   */
+  static async getHealthHistory(
+    providerId: string,
+    params?: { hours?: number }
+  ): Promise<ProviderHealthHistory> {
+    try {
+      const response = await apiClient.get<ProviderHealthHistory>(
+        `${this.BASE_PATH}/${providerId}/health-history`,
+        {
+          params: {
+            hours: params?.hours || 24,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  }
+
+  /**
    * Check provider health
    */
   static async checkProviderHealth(id: string): Promise<ProviderHealthResponse> {

@@ -33,7 +33,7 @@
   - Add provider deletion with confirmation and dependency checking
   - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 5. Build dynamic adapter configuration system
+- [x] 5. Build dynamic adapter configuration system
   - Create adapter config editor with type-specific field rendering (spawn-cli, http-sdk, proxy, local)
   - Implement form validation schemas using Zod for each adapter type
   - Build credential management interface with secure input handling and masking
@@ -41,7 +41,7 @@
   - Add configuration templates and presets for common provider setups
   - _Requirements: 2.2, 2.3, 2.4, 2.5, 3.2, 3.3_
 
-- [ ] 6. Implement provider testing and validation system
+- [x] 6. Implement provider testing and validation system
   - Create test provider dialog with sample request configuration
   - Build test execution interface with real-time progress and cancellation
   - Implement test results display with request/response inspection and error details

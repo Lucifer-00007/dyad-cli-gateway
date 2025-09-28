@@ -121,6 +121,82 @@ export interface ProviderTestResponse {
   };
 }
 
+// Enhanced test types for comprehensive testing system
+export interface TestRequest {
+  id: string;
+  providerId: string;
+  model: string;
+  messages: ChatMessage[];
+  parameters: {
+    maxTokens?: number;
+    temperature?: number;
+    topP?: number;
+    stream?: boolean;
+  };
+  metadata?: Record<string, any>;
+}
+
+export interface TestResult {
+  id: string;
+  testRequestId: string;
+  providerId: string;
+  providerName: string;
+  status: 'running' | 'success' | 'failure' | 'cancelled';
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  request: TestRequest;
+  response?: {
+    content: string;
+    usage?: Usage;
+    model: string;
+    finishReason?: FinishReason;
+  };
+  error?: {
+    type: string;
+    message: string;
+    code?: string;
+    details?: Record<string, any>;
+  };
+  logs: LogEntry[];
+  metadata?: Record<string, any>;
+}
+
+export interface TestHistory {
+  results: TestResult[];
+  totalResults: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+}
+
+export interface TestTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: 'basic' | 'advanced' | 'performance' | 'custom';
+  request: Omit<TestRequest, 'id' | 'providerId'>;
+  expectedBehavior?: string;
+}
+
+export interface HealthCheckConfig {
+  enabled: boolean;
+  interval: number; // minutes
+  timeout: number; // seconds
+  retryAttempts: number;
+  alertThreshold: number; // consecutive failures before alert
+}
+
+export interface ProviderHealthHistory {
+  providerId: string;
+  checks: Array<{
+    timestamp: string;
+    status: HealthStatus;
+    duration: number;
+    error?: string;
+  }>;
+}
+
 export interface ProviderHealthResponse {
   status: HealthStatus | 'disabled';
   message: string;
