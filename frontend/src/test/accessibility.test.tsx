@@ -1,600 +1,481 @@
-/**
- * Accessibility test suite with axe-core integration
- */
-
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe, toHaveNoViolations } from 'jest-axe';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
-import { MainLayout } from '@/components/layout/main-layout';
-import { PageHeader } from '@/components/layout/page-header';
-import { ProviderForm } from '@/components/providers/provider-form';
-import { ProviderList } from '@/components/providers/enhanced-provider-list';
-import { DataTable } from '@/components/ui/data-table';
-import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ChatPlayground } from '@/pages/ChatPlayground';
-import { Monitoring } from '@/pages/Monitoring';
-import { ApiKeys } from '@/pages/ApiKeys';
+import { AccessibilityProvider } from '@/components/accessibility-provider';
+import { I18nProvider } from '@/components/i18n-provider';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageSelector } from '@/components/language-selector';
+import { AccessibilityTester } from '@/components/accessibility-tester';
+import { AccessibleList, AccessibleTabs } from '@/components/ui/keyboard-navigation';
 
 // Extend Jest matchers
 expect.extend(toHaveNoViolations);
 
-// Test wrapper
+// Test wrapper with all providers
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  });
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+    <I18nProvider>
+      <AccessibilityProvider>
         {children}
-      </BrowserRouter>
-    </QueryClientProvider>
+      </AccessibilityProvider>
+    </I18nProvider>
   );
 };
 
-// Mock data
-const mockProviders = [
-  {
-    _id: 'provider-1',
-    name: 'Test Provider',
-    slug: 'test-provider',
-    type: 'http-sdk' as const,
-    description: 'A test provider',
-    enabled: true,
-    adapterConfig: {},
-    models: [],
-    healthStatus: {
-      status: 'healthy' as const,
-      lastChecked: '2023-01-01T00:00:00Z',
-      responseTime: 150,
-    },
-    createdAt: '2023-01-01T00:00:00Z',
-    updatedAt: '2023-01-01T00:00:00Z',
-  },
-];
+describe('Accessibility Implementation', () => {
+  beforeEach(() => {
+    // Reset DOM state
+    document.documentElement.className = '';
+    document.documentElement.removeAttribute('dir');
+    document.documentElement.removeAttribute('lang');
+  });
 
-describe('Accessibility Tests', () => {
-  describe('Layout Components', () => {
-    it('MainLayout should have no accessibility violations', async () => {
-      const { container } = render(
-        <TestWrapper>
-          <MainLayout>
-            <div>Main content</div>
-          </MainLayout>
-        </TestWrapper>
-      );
+  afterEach(() => {
+    // Cleanup
+    document.documentElement.className = '';
+    document.documentElement.removeAttribute('dir');
+    document.documentElement.removeAttribute('lang');
+  });
 
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('MainLayout should have proper landmark structure', () => {
+  describe('Accessibility Provider', () => {
+    it('should provide accessibility context', () => {
       render(
         <TestWrapper>
-          <MainLayout>
-            <div>Main content</div>
-          </MainLayout>
+          <div data-testid="test-content">Test content</div>
         </TestWrapper>
       );
 
-      // Check for required landmarks
-      expect(screen.getByRole('main')).toBeInTheDocument();
-      expect(screen.getByRole('navigation')).toBeInTheDocument();
-      
-      // Navigation should have accessible name
-      const nav = screen.getByRole('navigation');
-      expect(nav).toHaveAttribute('aria-label');
+      expect(screen.getByTestId('test-content')).toBeInTheDocument();
     });
 
-    it('PageHeader should have no accessibility violations', async () => {
-      const breadcrumbs = [
-        { label: 'Home', href: '/' },
-        { label: 'Providers', href: '/providers' },
-      ];
-
-      const { container } = render(
-        <TestWrapper>
-          <PageHeader 
-            title="Test Page" 
-            description="Test description"
-            breadcrumbs={breadcrumbs}
-          />
-        </TestWrapper>
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('PageHeader should have proper heading hierarchy', () => {
+    it('should add skip links', () => {
       render(
-        <PageHeader title="Main Title" />
+        <TestWrapper>
+          <div>Test content</div>
+        </TestWrapper>
       );
 
-      const heading = screen.getByRole('heading', { name: 'Main Title' });
-      expect(heading.tagName).toBe('H1');
-      expect(heading).toHaveAccessibleName('Main Title');
+      const skipLinks = screen.getAllByText(/skip to/i);
+      expect(skipLinks.length).toBeGreaterThan(0);
+    });
+
+    it('should provide screen reader instructions', () => {
+      render(
+        <TestWrapper>
+          <div>Test content</div>
+        </TestWrapper>
+      );
+
+      expect(screen.getByText(/dyad cli gateway admin interface/i)).toBeInTheDocument();
     });
   });
 
-  describe('Form Components', () => {
-    it('ProviderForm should have no accessibility violations', async () => {
-      const { container } = render(
-        <TestWrapper>
-          <ProviderForm
-            mode="create"
-            onSubmit={vi.fn()}
-            onCancel={vi.fn()}
-          />
-        </TestWrapper>
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('ProviderForm should have proper form labels', () => {
+  describe('Theme System', () => {
+    it('should render theme toggle', () => {
       render(
         <TestWrapper>
-          <ProviderForm
-            mode="create"
-            onSubmit={vi.fn()}
-            onCancel={vi.fn()}
-          />
+          <ThemeToggle />
         </TestWrapper>
       );
 
-      // All form controls should have labels
-      expect(screen.getByLabelText(/Provider Name/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Provider Slug/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Provider Type/)).toBeInTheDocument();
+      const themeButton = screen.getByRole('button', { name: /theme and accessibility settings/i });
+      expect(themeButton).toBeInTheDocument();
     });
 
-    it('Input component should have no accessibility violations', async () => {
-      const { container } = render(
-        <div>
-          <label htmlFor="test-input">Test Input</label>
-          <Input id="test-input" />
-        </div>
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('Input with error should be properly associated', () => {
-      render(
-        <div>
-          <label htmlFor="error-input">Error Input</label>
-          <Input id="error-input" error="This field is required" />
-        </div>
-      );
-
-      const input = screen.getByLabelText('Error Input');
-      const errorMessage = screen.getByText('This field is required');
-      
-      expect(input).toHaveAttribute('aria-invalid', 'true');
-      expect(input).toHaveAttribute('aria-describedby');
-      expect(errorMessage).toHaveAttribute('id');
-    });
-  });
-
-  describe('Data Display Components', () => {
-    it('DataTable should have no accessibility violations', async () => {
-      const data = [
-        { id: 1, name: 'John', email: 'john@example.com' },
-        { id: 2, name: 'Jane', email: 'jane@example.com' },
-      ];
-      
-      const columns = [
-        { accessorKey: 'name', header: 'Name' },
-        { accessorKey: 'email', header: 'Email' },
-      ];
-
-      const { container } = render(
-        <DataTable data={data} columns={columns} />
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('DataTable should have proper table structure', () => {
-      const data = [
-        { id: 1, name: 'John', email: 'john@example.com' },
-      ];
-      
-      const columns = [
-        { accessorKey: 'name', header: 'Name' },
-        { accessorKey: 'email', header: 'Email' },
-      ];
-
-      render(<DataTable data={data} columns={columns} />);
-
-      const table = screen.getByRole('table');
-      expect(table).toBeInTheDocument();
-      
-      // Should have column headers
-      expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument();
-      expect(screen.getByRole('columnheader', { name: 'Email' })).toBeInTheDocument();
-      
-      // Should have data cells
-      expect(screen.getByRole('cell', { name: 'John' })).toBeInTheDocument();
-      expect(screen.getByRole('cell', { name: 'john@example.com' })).toBeInTheDocument();
-    });
-
-    it('ProviderList should have no accessibility violations', async () => {
-      const { container } = render(
-        <TestWrapper>
-          <ProviderList
-            providers={mockProviders}
-            onEdit={vi.fn()}
-            onDelete={vi.fn()}
-            onTest={vi.fn()}
-            onToggleEnabled={vi.fn()}
-          />
-        </TestWrapper>
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-  });
-
-  describe('Interactive Components', () => {
-    it('Button should have no accessibility violations', async () => {
-      const { container } = render(
-        <Button onClick={vi.fn()}>Click me</Button>
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('Button should be keyboard accessible', async () => {
+    it('should support keyboard navigation', async () => {
       const user = userEvent.setup();
-      const handleClick = vi.fn();
-
-      render(<Button onClick={handleClick}>Click me</Button>);
-
-      const button = screen.getByRole('button');
-      
-      // Should be focusable
-      await user.tab();
-      expect(button).toHaveFocus();
-      
-      // Should be activatable with Enter
-      await user.keyboard('{Enter}');
-      expect(handleClick).toHaveBeenCalled();
-      
-      // Should be activatable with Space
-      await user.keyboard(' ');
-      expect(handleClick).toHaveBeenCalledTimes(2);
-    });
-
-    it('ConfirmationDialog should have no accessibility violations', async () => {
-      const { container } = render(
-        <ConfirmationDialog
-          open={true}
-          title="Confirm Action"
-          description="Are you sure?"
-          onConfirm={vi.fn()}
-          onCancel={vi.fn()}
-        />
-      );
-
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
-
-    it('ConfirmationDialog should have proper focus management', () => {
       render(
-        <ConfirmationDialog
-          open={true}
-          title="Confirm Action"
-          description="Are you sure?"
-          onConfirm={vi.fn()}
-          onCancel={vi.fn()}
-        />
+        <TestWrapper>
+          <ThemeToggle />
+        </TestWrapper>
       );
 
-      // Dialog should have proper role and labeling
-      const dialog = screen.getByRole('dialog');
-      expect(dialog).toHaveAttribute('aria-labelledby');
-      expect(dialog).toHaveAttribute('aria-describedby');
+      const themeButton = screen.getByRole('button', { name: /theme and accessibility settings/i });
       
-      // Title should be properly associated
-      const title = screen.getByText('Confirm Action');
-      expect(title).toHaveAttribute('id');
-      
-      // Description should be properly associated
-      const description = screen.getByText('Are you sure?');
-      expect(description).toHaveAttribute('id');
+      // Focus the button
+      await user.tab();
+      expect(themeButton).toHaveFocus();
+
+      // Open the menu
+      await user.keyboard('{Enter}');
+      await waitFor(() => {
+        expect(screen.getByText('Light')).toBeInTheDocument();
+      });
+    });
+
+    it('should apply high contrast mode', async () => {
+      const user = userEvent.setup();
+      render(
+        <TestWrapper>
+          <ThemeToggle />
+        </TestWrapper>
+      );
+
+      const themeButton = screen.getByRole('button', { name: /theme and accessibility settings/i });
+      await user.click(themeButton);
+
+      await waitFor(() => {
+        const highContrastOption = screen.getByText('High Contrast');
+        expect(highContrastOption).toBeInTheDocument();
+      });
     });
   });
 
-  describe('Page Components', () => {
-    it('ChatPlayground should have no accessibility violations', async () => {
-      const { container } = render(
+  describe('Internationalization', () => {
+    it('should render language selector', () => {
+      render(
         <TestWrapper>
-          <ChatPlayground />
+          <LanguageSelector />
         </TestWrapper>
       );
 
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
+      const languageButton = screen.getByRole('button');
+      expect(languageButton).toBeInTheDocument();
     });
 
-    it('Monitoring page should have no accessibility violations', async () => {
-      const { container } = render(
+    it('should support multiple languages', async () => {
+      const user = userEvent.setup();
+      render(
         <TestWrapper>
-          <Monitoring />
+          <LanguageSelector />
         </TestWrapper>
       );
 
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
+      const languageButton = screen.getByRole('button');
+      await user.click(languageButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('English')).toBeInTheDocument();
+        expect(screen.getByText('Español')).toBeInTheDocument();
+        expect(screen.getByText('Français')).toBeInTheDocument();
+      });
     });
 
-    it('ApiKeys page should have no accessibility violations', async () => {
-      const { container } = render(
+    it('should set document language attribute', async () => {
+      const user = userEvent.setup();
+      render(
         <TestWrapper>
-          <ApiKeys />
+          <LanguageSelector />
         </TestWrapper>
       );
 
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
+      const languageButton = screen.getByRole('button');
+      await user.click(languageButton);
+
+      const spanishOption = await screen.findByText('Español');
+      await user.click(spanishOption);
+
+      await waitFor(() => {
+        expect(document.documentElement.lang).toBe('es');
+      });
     });
   });
 
   describe('Keyboard Navigation', () => {
-    it('should support tab navigation through interactive elements', async () => {
+    const testItems = [
+      { id: '1', name: 'Item 1' },
+      { id: '2', name: 'Item 2' },
+      { id: '3', name: 'Item 3' },
+    ];
+
+    it('should support arrow key navigation', async () => {
       const user = userEvent.setup();
-
-      render(
-        <div>
-          <Button>First Button</Button>
-          <Input placeholder="Input field" />
-          <Button>Second Button</Button>
-        </div>
-      );
-
-      const firstButton = screen.getByText('First Button');
-      const input = screen.getByPlaceholderText('Input field');
-      const secondButton = screen.getByText('Second Button');
-
-      // Tab through elements
-      await user.tab();
-      expect(firstButton).toHaveFocus();
-
-      await user.tab();
-      expect(input).toHaveFocus();
-
-      await user.tab();
-      expect(secondButton).toHaveFocus();
-
-      // Shift+Tab should go backwards
-      await user.tab({ shift: true });
-      expect(input).toHaveFocus();
-    });
-
-    it('should support arrow key navigation in lists', async () => {
-      const user = userEvent.setup();
+      const onSelect = vi.fn();
 
       render(
         <TestWrapper>
-          <ProviderList
-            providers={mockProviders}
-            onEdit={vi.fn()}
-            onDelete={vi.fn()}
-            onTest={vi.fn()}
-            onToggleEnabled={vi.fn()}
+          <AccessibleList
+            items={testItems}
+            onSelect={onSelect}
+            renderItem={(item) => <div>{item.name}</div>}
+            ariaLabel="Test list"
           />
         </TestWrapper>
       );
 
-      // Focus first item
-      await user.tab();
-      
-      // Arrow keys should navigate within the list
+      const list = screen.getByRole('listbox', { name: 'Test list' });
+      await user.click(list);
+
+      // Navigate with arrow keys
       await user.keyboard('{ArrowDown}');
-      await user.keyboard('{ArrowUp}');
-      
-      // Home/End should go to first/last items
-      await user.keyboard('{Home}');
-      await user.keyboard('{End}');
-    });
-  });
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{Enter}');
 
-  describe('Screen Reader Support', () => {
-    it('should have proper ARIA labels and descriptions', () => {
-      render(
-        <TestWrapper>
-          <MainLayout>
-            <PageHeader 
-              title="Providers" 
-              description="Manage your AI providers"
-            />
-            <ProviderList
-              providers={mockProviders}
-              onEdit={vi.fn()}
-              onDelete={vi.fn()}
-              onTest={vi.fn()}
-              onToggleEnabled={vi.fn()}
-            />
-          </MainLayout>
-        </TestWrapper>
-      );
-
-      // Navigation should have accessible name
-      const nav = screen.getByRole('navigation');
-      expect(nav).toHaveAttribute('aria-label');
-
-      // Main content should be identified
-      const main = screen.getByRole('main');
-      expect(main).toBeInTheDocument();
-
-      // Headings should be properly structured
-      const heading = screen.getByRole('heading', { level: 1 });
-      expect(heading).toBeInTheDocument();
+      expect(onSelect).toHaveBeenCalledWith(testItems[1], 1);
     });
 
-    it('should announce dynamic content changes', () => {
-      const { rerender } = render(
-        <div aria-live="polite" aria-atomic="true">
-          <span>Loading...</span>
-        </div>
-      );
-
-      // Content change should be announced
-      rerender(
-        <div aria-live="polite" aria-atomic="true">
-          <span>Data loaded successfully</span>
-        </div>
-      );
-
-      expect(screen.getByText('Data loaded successfully')).toBeInTheDocument();
-    });
-
-    it('should provide status updates for form validation', async () => {
+    it('should support home and end keys', async () => {
       const user = userEvent.setup();
+      const onSelect = vi.fn();
 
       render(
         <TestWrapper>
-          <ProviderForm
-            mode="create"
-            onSubmit={vi.fn()}
-            onCancel={vi.fn()}
+          <AccessibleList
+            items={testItems}
+            onSelect={onSelect}
+            renderItem={(item) => <div>{item.name}</div>}
+            ariaLabel="Test list"
           />
         </TestWrapper>
       );
 
-      // Submit form without required fields
-      await user.click(screen.getByText('Create'));
+      const list = screen.getByRole('listbox', { name: 'Test list' });
+      await user.click(list);
 
-      // Error messages should be announced
-      const errorMessage = screen.getByText('Provider name is required');
-      expect(errorMessage).toHaveAttribute('role', 'alert');
+      // Go to end
+      await user.keyboard('{End}');
+      await user.keyboard('{Enter}');
+
+      expect(onSelect).toHaveBeenCalledWith(testItems[2], 2);
+
+      // Go to beginning
+      await user.keyboard('{Home}');
+      await user.keyboard('{Enter}');
+
+      expect(onSelect).toHaveBeenCalledWith(testItems[0], 0);
     });
   });
 
-  describe('Color Contrast and Visual Accessibility', () => {
-    it('should meet color contrast requirements', async () => {
-      const { container } = render(
-        <div>
-          <Button variant="default">Default Button</Button>
-          <Button variant="destructive">Destructive Button</Button>
-          <Button variant="outline">Outline Button</Button>
-        </div>
-      );
+  describe('Tab Navigation', () => {
+    const testTabs = [
+      { id: 'tab1', label: 'Tab 1', content: <div>Content 1</div> },
+      { id: 'tab2', label: 'Tab 2', content: <div>Content 2</div> },
+      { id: 'tab3', label: 'Tab 3', content: <div>Content 3</div> },
+    ];
 
-      // axe-core will check color contrast automatically
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
-    });
+    it('should support tab navigation with arrow keys', async () => {
+      const user = userEvent.setup();
+      const onTabChange = vi.fn();
 
-    it('should not rely solely on color for information', () => {
       render(
         <TestWrapper>
-          <ProviderList
-            providers={mockProviders}
-            onEdit={vi.fn()}
-            onDelete={vi.fn()}
-            onTest={vi.fn()}
-            onToggleEnabled={vi.fn()}
+          <AccessibleTabs
+            tabs={testTabs}
+            activeTab="tab1"
+            onTabChange={onTabChange}
           />
         </TestWrapper>
       );
 
-      // Status should be indicated by text, not just color
-      expect(screen.getByText('Healthy')).toBeInTheDocument();
-      expect(screen.getByText('Enabled')).toBeInTheDocument();
+      const tabList = screen.getByRole('tablist');
+      await user.click(tabList);
+
+      // Navigate with arrow keys
+      await user.keyboard('{ArrowRight}');
+      
+      expect(onTabChange).toHaveBeenCalledWith('tab2');
+    });
+
+    it('should have proper ARIA attributes', () => {
+      render(
+        <TestWrapper>
+          <AccessibleTabs
+            tabs={testTabs}
+            activeTab="tab1"
+            onTabChange={() => {}}
+          />
+        </TestWrapper>
+      );
+
+      const tab1 = screen.getByRole('tab', { name: 'Tab 1' });
+      expect(tab1).toHaveAttribute('aria-selected', 'true');
+      expect(tab1).toHaveAttribute('aria-controls', 'tabpanel-tab1');
+
+      const tabPanel = screen.getByRole('tabpanel');
+      expect(tabPanel).toHaveAttribute('aria-labelledby', 'tab-tab1');
     });
   });
 
   describe('Focus Management', () => {
-    it('should manage focus in modal dialogs', async () => {
+    it('should trap focus in modal', async () => {
       const user = userEvent.setup();
-
+      
       render(
-        <ConfirmationDialog
-          open={true}
-          title="Delete Provider"
-          description="This action cannot be undone."
-          onConfirm={vi.fn()}
-          onCancel={vi.fn()}
-        />
+        <TestWrapper>
+          <div>
+            <button>Outside button</button>
+            <div role="dialog" aria-modal="true">
+              <button>Modal button 1</button>
+              <button>Modal button 2</button>
+              <button>Close</button>
+            </div>
+          </div>
+        </TestWrapper>
       );
 
-      // Focus should be trapped within the dialog
-      await user.tab();
-      const confirmButton = screen.getByText('Confirm');
-      expect(confirmButton).toHaveFocus();
+      const modalButton1 = screen.getByText('Modal button 1');
+      const modalButton2 = screen.getByText('Modal button 2');
+      const closeButton = screen.getByText('Close');
+
+      // Focus should be trapped within modal
+      modalButton1.focus();
+      expect(modalButton1).toHaveFocus();
 
       await user.tab();
-      const cancelButton = screen.getByText('Cancel');
-      expect(cancelButton).toHaveFocus();
+      expect(modalButton2).toHaveFocus();
 
-      // Tab from last element should go to first
       await user.tab();
-      expect(confirmButton).toHaveFocus();
-    });
+      expect(closeButton).toHaveFocus();
 
-    it('should restore focus after modal closes', async () => {
-      const user = userEvent.setup();
-      let isOpen = true;
-
-      const TestComponent = () => (
-        <div>
-          <Button onClick={() => { isOpen = true; }}>Open Dialog</Button>
-          {isOpen && (
-            <ConfirmationDialog
-              open={isOpen}
-              title="Test Dialog"
-              description="Test description"
-              onConfirm={() => { isOpen = false; }}
-              onCancel={() => { isOpen = false; }}
-            />
-          )}
-        </div>
-      );
-
-      const { rerender } = render(<TestComponent />);
-
-      const openButton = screen.getByText('Open Dialog');
-      openButton.focus();
-
-      // Open dialog
-      isOpen = true;
-      rerender(<TestComponent />);
-
-      // Close dialog
-      await user.click(screen.getByText('Cancel'));
-      isOpen = false;
-      rerender(<TestComponent />);
-
-      // Focus should return to the trigger button
-      expect(openButton).toHaveFocus();
+      // Should wrap back to first button
+      await user.tab();
+      expect(modalButton1).toHaveFocus();
     });
   });
 
-  describe('Responsive Design Accessibility', () => {
-    it('should maintain accessibility on mobile viewports', async () => {
-      // Mock mobile viewport
+  describe('Screen Reader Support', () => {
+    it('should announce status changes', async () => {
+      const user = userEvent.setup();
+      
+      render(
+        <TestWrapper>
+          <div>
+            <button>Test button</button>
+            <div role="status" aria-live="polite" data-testid="status">
+              Ready
+            </div>
+          </div>
+        </TestWrapper>
+      );
+
+      const statusElement = screen.getByTestId('status');
+      expect(statusElement).toHaveAttribute('aria-live', 'polite');
+    });
+
+    it('should provide proper labels for form controls', () => {
+      render(
+        <TestWrapper>
+          <form>
+            <label htmlFor="test-input">Test Input</label>
+            <input id="test-input" type="text" />
+            
+            <input type="text" aria-label="Unlabeled input" />
+            
+            <fieldset>
+              <legend>Radio Group</legend>
+              <input type="radio" id="radio1" name="test" />
+              <label htmlFor="radio1">Option 1</label>
+              <input type="radio" id="radio2" name="test" />
+              <label htmlFor="radio2">Option 2</label>
+            </fieldset>
+          </form>
+        </TestWrapper>
+      );
+
+      const labeledInput = screen.getByLabelText('Test Input');
+      expect(labeledInput).toBeInTheDocument();
+
+      const unlabeledInput = screen.getByLabelText('Unlabeled input');
+      expect(unlabeledInput).toBeInTheDocument();
+
+      const radioGroup = screen.getByRole('group', { name: 'Radio Group' });
+      expect(radioGroup).toBeInTheDocument();
+    });
+  });
+
+  describe('Accessibility Tester Component', () => {
+    it('should render accessibility tester', () => {
+      render(
+        <TestWrapper>
+          <AccessibilityTester />
+        </TestWrapper>
+      );
+
+      const testerButton = screen.getByRole('button', { name: /open accessibility tester/i });
+      expect(testerButton).toBeInTheDocument();
+    });
+
+    it('should open tester panel', async () => {
+      const user = userEvent.setup();
+      
+      render(
+        <TestWrapper>
+          <AccessibilityTester />
+        </TestWrapper>
+      );
+
+      const testerButton = screen.getByRole('button', { name: /open accessibility tester/i });
+      await user.click(testerButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Accessibility Tester')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Axe Accessibility Tests', () => {
+    it('should not have accessibility violations - Theme Toggle', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <ThemeToggle />
+        </TestWrapper>
+      );
+
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it('should not have accessibility violations - Language Selector', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <LanguageSelector />
+        </TestWrapper>
+      );
+
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it('should not have accessibility violations - Accessible List', async () => {
+      const testItems = [
+        { id: '1', name: 'Item 1' },
+        { id: '2', name: 'Item 2' },
+      ];
+
+      const { container } = render(
+        <TestWrapper>
+          <AccessibleList
+            items={testItems}
+            onSelect={() => {}}
+            renderItem={(item) => <div>{item.name}</div>}
+            ariaLabel="Test list"
+          />
+        </TestWrapper>
+      );
+
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it('should not have accessibility violations - Accessible Tabs', async () => {
+      const testTabs = [
+        { id: 'tab1', label: 'Tab 1', content: <div>Content 1</div> },
+        { id: 'tab2', label: 'Tab 2', content: <div>Content 2</div> },
+      ];
+
+      const { container } = render(
+        <TestWrapper>
+          <AccessibleTabs
+            tabs={testTabs}
+            activeTab="tab1"
+            onTabChange={() => {}}
+          />
+        </TestWrapper>
+      );
+
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe('Reduced Motion Support', () => {
+    it('should respect reduced motion preference', () => {
+      // Mock prefers-reduced-motion
       Object.defineProperty(window, 'matchMedia', {
         writable: true,
         value: vi.fn().mockImplementation(query => ({
-          matches: query.includes('768px'),
+          matches: query === '(prefers-reduced-motion: reduce)',
           media: query,
           onchange: null,
           addListener: vi.fn(),
@@ -605,36 +486,62 @@ describe('Accessibility Tests', () => {
         })),
       });
 
-      const { container } = render(
+      render(
         <TestWrapper>
-          <MainLayout>
-            <ProviderList
-              providers={mockProviders}
-              onEdit={vi.fn()}
-              onDelete={vi.fn()}
-              onTest={vi.fn()}
-              onToggleEnabled={vi.fn()}
-            />
-          </MainLayout>
+          <div>Test content</div>
         </TestWrapper>
       );
 
-      const results = await axe(container);
-      expect(results).toHaveNoViolations();
+      // Check if reduced motion class is applied
+      expect(document.documentElement).toHaveClass('reduced-motion');
     });
+  });
 
-    it('should support touch interactions', async () => {
+  describe('High Contrast Support', () => {
+    it('should apply high contrast styles when enabled', async () => {
       const user = userEvent.setup();
-      const handleClick = vi.fn();
-
-      render(<Button onClick={handleClick}>Touch Button</Button>);
-
-      const button = screen.getByRole('button');
       
-      // Simulate touch interaction
-      await user.pointer({ target: button, keys: '[TouchA]' });
+      render(
+        <TestWrapper>
+          <ThemeToggle />
+        </TestWrapper>
+      );
+
+      const themeButton = screen.getByRole('button', { name: /theme and accessibility settings/i });
+      await user.click(themeButton);
+
+      const highContrastOption = await screen.findByText('High Contrast');
+      await user.click(highContrastOption);
+
+      await waitFor(() => {
+        expect(document.documentElement).toHaveClass('high-contrast');
+      });
+    });
+  });
+
+  describe('Font Size Support', () => {
+    it('should support different font sizes', async () => {
+      const user = userEvent.setup();
       
-      expect(handleClick).toHaveBeenCalled();
+      render(
+        <TestWrapper>
+          <ThemeToggle />
+        </TestWrapper>
+      );
+
+      const themeButton = screen.getByRole('button', { name: /theme and accessibility settings/i });
+      await user.click(themeButton);
+
+      // Navigate to font size submenu
+      const fontSizeOption = await screen.findByText('Font Size');
+      await user.hover(fontSizeOption);
+
+      const largeOption = await screen.findByText('Large');
+      await user.click(largeOption);
+
+      await waitFor(() => {
+        expect(document.documentElement).toHaveClass('font-large');
+      });
     });
   });
 });

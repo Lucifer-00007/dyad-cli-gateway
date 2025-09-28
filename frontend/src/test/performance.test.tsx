@@ -80,7 +80,7 @@ const measureRenderTime = (renderFn: () => void): number => {
 
 const measureMemoryUsage = (): number => {
   if ('memory' in performance) {
-    return (performance as any).memory.usedJSHeapSize;
+    return (performance as { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize;
   }
   return 0;
 };
@@ -510,7 +510,7 @@ describe('Performance Tests', () => {
   });
 
   describe('Component Re-render Performance', () => {
-    const RenderCountComponent = ({ data }: { data: any[] }) => {
+    const RenderCountComponent = ({ data }: { data: unknown[] }) => {
       const renderCount = React.useRef(0);
       renderCount.current += 1;
 
