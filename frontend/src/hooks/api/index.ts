@@ -13,3 +13,12 @@ export * from './use-system';
 
 // Chat hooks
 export * from './use-chat';
+
+// API Key hooks
+export * from './use-api-keys';
+
+// Metrics hooks
+export * from './use-metrics';
+
+// WebSocket hooks
+export * from './use-websocket';

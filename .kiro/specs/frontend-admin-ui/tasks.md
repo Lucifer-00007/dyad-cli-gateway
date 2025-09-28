@@ -8,7 +8,7 @@
   - Set up axios interceptors for authentication, CSRF protection, and API versioning
   - _Requirements: 9.1, 9.6_
 
-- [ ] 2. Implement core API services and data layer
+- [x] 2. Implement core API services and data layer
   - Create generated API client services from OpenAPI specification for all admin endpoints
   - Implement custom React Query hooks for providers CRUD operations with caching strategies
   - Create API services for system monitoring, health checks, and metrics collection
@@ -16,7 +16,7 @@
   - Add error handling utilities and API response normalization
   - _Requirements: 1.1, 1.2, 5.1, 5.2_
 
-- [ ] 3. Build shared UI components and layout system
+- [x] 3. Build shared UI components and layout system
   - Create main application layout with responsive sidebar navigation and header
   - Implement page header component with breadcrumbs, actions, and dynamic content
   - Build reusable data table component with sorting, filtering, and pagination

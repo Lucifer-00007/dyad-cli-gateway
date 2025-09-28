@@ -260,7 +260,20 @@ export interface MetricDataPoint {
   label?: string;
 }
 
-// API Key Management Types (for future implementation)
+// Log Entry Types
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  level: 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+  message: string;
+  source: string;
+  providerId?: string;
+  requestId?: string;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+// API Key Management Types
 export interface ApiKey {
   id: string;
   name: string;

@@ -177,6 +177,17 @@ export const queryKeys = {
     list: (filters?: any) => [...queryKeys.apiKeys.lists(), filters] as const,
     details: () => [...queryKeys.apiKeys.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.apiKeys.details(), id] as const,
+    usage: (id: string) => [...queryKeys.apiKeys.detail(id), 'usage'] as const,
+  },
+  
+  // Metrics queries
+  metrics: {
+    all: ['metrics'] as const,
+    system: () => [...queryKeys.metrics.all, 'system'] as const,
+    providers: () => [...queryKeys.metrics.all, 'providers'] as const,
+    models: () => [...queryKeys.metrics.all, 'models'] as const,
+    errors: () => [...queryKeys.metrics.all, 'errors'] as const,
+    realtime: () => [...queryKeys.metrics.all, 'realtime'] as const,
   },
   
   // Chat queries

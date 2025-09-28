@@ -4,6 +4,7 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { ErrorResponse } from '@/types';
+import { enhanceApiError, reportError } from './error-handling';
 
 import { config } from './config';
 
@@ -212,11 +213,17 @@ export const handleApiError = (error: unknown): ApiError => {
   }
   
   if (axios.isAxiosError(error)) {
-    return new ApiError(error);
+    const apiError = new ApiError(error);
+    
+    // Enhance error with additional context and report it
+    const enhancedError = enhanceApiError(error);
+    reportError(enhancedError);
+    
+    return apiError;
   }
   
   // Fallback for non-axios errors
-  return new ApiError({
+  const fallbackError = new ApiError({
     message: error instanceof Error ? error.message : 'Unknown error',
     response: {
       status: 500,
@@ -229,6 +236,12 @@ export const handleApiError = (error: unknown): ApiError => {
       },
     },
   } as AxiosError<ErrorResponse>);
+  
+  // Enhance and report fallback error
+  const enhancedError = enhanceApiError(error);
+  reportError(enhancedError);
+  
+  return fallbackError;
 };
 
 // Request timeout configuration
