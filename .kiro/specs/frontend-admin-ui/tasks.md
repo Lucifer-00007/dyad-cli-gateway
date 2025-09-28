@@ -123,7 +123,7 @@
 
 - [ ] 16. Create documentation and developer experience
   - Write comprehensive component documentation with Storybook integration
-  - Create API integration guide and troubleshooting documentation
+  - Create API integration guide and troubleshooting documentation(in ./frontend/docs)
   - Build development setup guide with environment configuration
   - Add code style guide and contribution guidelines
   - Create deployment guide with environment-specific configurations

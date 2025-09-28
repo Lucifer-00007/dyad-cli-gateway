@@ -8,6 +8,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider } from 'next-themes';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/contexts/auth-context';
+import { FeatureFlagsProvider } from '@/lib/feature-flags';
 import { queryClient, initializeQueryPersistence } from '@/lib/query-client';
 
 interface AppProvidersProps {
@@ -26,15 +27,21 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         enableSystem
         disableTransitionOnChange
       >
-        <AuthProvider>
-          {children}
-          <Toaster 
-            position="top-right"
-            expand={true}
-            richColors
-            closeButton
-          />
-        </AuthProvider>
+        <FeatureFlagsProvider
+          config={{
+            environment: import.meta.env.MODE as 'development' | 'staging' | 'production',
+          }}
+        >
+          <AuthProvider>
+            {children}
+            <Toaster 
+              position="top-right"
+              expand={true}
+              richColors
+              closeButton
+            />
+          </AuthProvider>
+        </FeatureFlagsProvider>
       </ThemeProvider>
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>

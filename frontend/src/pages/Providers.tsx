@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, PageHeaderActions } from '@/components/layout';
+import { EnhancedProviderList } from '@/components/providers/enhanced-provider-list';
+import { FeatureGate } from '@/components/ui/feature-gate';
 import { DataTable, ColumnDef } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useDeleteConfirmation, useConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { usePerformanceMonitor } from '@/hooks/use-performance-monitor';
 import { ProviderTestDialog } from '@/components/providers';
 import { 
   useProviders, 
@@ -40,6 +43,21 @@ const Providers: React.FC = () => {
   
   const { showDeleteConfirmation, ConfirmationDialog: DeleteDialog } = useDeleteConfirmation();
   const { showConfirmation, ConfirmationDialog: ToggleDialog } = useConfirmationDialog();
+  
+  // Performance monitoring
+  const { measureRenderTime, getPerformanceScore } = usePerformanceMonitor({
+    enabled: true,
+    onReport: (entry) => {
+      // In a real app, you'd send this to your analytics service
+      console.log('Performance metrics:', entry);
+    },
+  });
+  
+  // Measure component render time
+  React.useEffect(() => {
+    const endMeasurement = measureRenderTime('ProvidersPage');
+    return endMeasurement;
+  }, [measureRenderTime]);
 
   // API hooks
   const { data: providersData, isLoading, error, refetch } = useProviders();
@@ -381,61 +399,74 @@ const Providers: React.FC = () => {
         </div>
       )}
 
-      <DataTable
-        data={providers}
-        columns={columns}
-        loading={isLoading}
-        searchPlaceholder="Search providers..."
-        actions={[
-          {
-            label: 'View',
-            onClick: handleView,
-            icon: Eye,
-            variant: 'ghost',
-          },
-          {
-            label: 'Test',
-            onClick: handleTest,
-            icon: Play,
-            variant: 'default',
-            disabled: (provider) => !provider.enabled || testingProvider === provider.id,
-          },
-          {
-            label: (provider) => provider.enabled ? 'Disable' : 'Enable',
-            onClick: handleToggle,
-            icon: (provider) => provider.enabled ? PowerOff : Power,
-            variant: 'ghost',
-          },
-          {
-            label: 'Edit',
-            onClick: handleEdit,
-            icon: Edit,
-            variant: 'ghost',
-          },
-          {
-            label: 'Delete',
-            onClick: handleDelete,
-            icon: Trash2,
-            variant: 'destructive',
-            disabled: (provider) => provider.enabled,
-          },
-        ]}
-        pagination={{
-          pageSize: 10,
-          showSizeSelector: true,
-          pageSizeOptions: [5, 10, 20, 50],
-        }}
-        emptyState={{
-          title: 'No providers found',
-          description: 'Get started by adding your first AI provider.',
-          action: (
-            <Button onClick={handleCreate}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Provider
-            </Button>
-          ),
-        }}
-      />
+      {/* Enhanced Provider List with Advanced Features */}
+      <FeatureGate
+        flag="bulk-operations"
+        fallback={
+          <DataTable
+            data={providers}
+            columns={columns}
+            loading={isLoading}
+            searchPlaceholder="Search providers..."
+            actions={[
+              {
+                label: 'View',
+                onClick: handleView,
+                icon: Eye,
+                variant: 'ghost',
+              },
+              {
+                label: 'Test',
+                onClick: handleTest,
+                icon: Play,
+                variant: 'default',
+                disabled: (provider) => !provider.enabled || testingProvider === provider.id,
+              },
+              {
+                label: (provider) => provider.enabled ? 'Disable' : 'Enable',
+                onClick: handleToggle,
+                icon: (provider) => provider.enabled ? PowerOff : Power,
+                variant: 'ghost',
+              },
+              {
+                label: 'Edit',
+                onClick: handleEdit,
+                icon: Edit,
+                variant: 'ghost',
+              },
+              {
+                label: 'Delete',
+                onClick: handleDelete,
+                icon: Trash2,
+                variant: 'destructive',
+                disabled: (provider) => provider.enabled,
+              },
+            ]}
+            pagination={{
+              pageSize: 10,
+              showSizeSelector: true,
+              pageSizeOptions: [5, 10, 20, 50],
+            }}
+            emptyState={{
+              title: 'No providers found',
+              description: 'Get started by adding your first AI provider.',
+              action: (
+                <Button onClick={handleCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Provider
+                </Button>
+              ),
+            }}
+          />
+        }
+      >
+        <EnhancedProviderList
+          onEdit={handleEdit}
+          onView={handleView}
+          onTest={handleTest}
+          onDelete={handleDelete}
+        />
+      </FeatureGate>
 
       <DeleteDialog />
       <ToggleDialog />
