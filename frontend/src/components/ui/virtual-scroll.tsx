@@ -66,6 +66,7 @@ export function VirtualScroll<T>({
     <div className={className} style={{ height: containerHeight }}>
       <div
         ref={scrollElementRef}
+        data-testid="virtual-scroll-container"
         style={{
           height: containerHeight,
           overflow: 'auto',

@@ -280,3 +280,65 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
     </button>
   );
 };
+
+// Grouped LoadingStates object for easier testing and usage
+export const LoadingStates = {
+  Skeleton: ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <Skeleton className={className} {...props} data-testid="skeleton-loader" />
+  ),
+  
+  Spinner: ({ size = 'md', className, ...props }: LoadingSpinnerProps & { 'data-testid'?: string }) => (
+    <div data-testid="loading-spinner">
+      <LoadingSpinner size={size} className={className} {...props} />
+    </div>
+  ),
+  
+  TableSkeleton: ({ rows = 5, columns = 4, showHeader = true }: TableSkeletonProps) => {
+    return (
+      <div className="border rounded-md">
+        {showHeader && (
+          <div className="border-b p-4">
+            <div className="flex space-x-4">
+              {Array.from({ length: columns }).map((_, i) => (
+                <Skeleton key={i} className="h-4 flex-1" data-testid="skeleton-loader" />
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="divide-y">
+          {Array.from({ length: rows }).map((_, rowIndex) => (
+            <div key={rowIndex} className="p-4">
+              <div className="flex space-x-4">
+                {Array.from({ length: columns }).map((_, colIndex) => (
+                  <Skeleton key={colIndex} className="h-4 flex-1" data-testid="skeleton-loader" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  },
+  
+  CardSkeleton: ({ showHeader = true, lines = 3, className }: CardSkeletonProps) => (
+    <Card className={className} data-testid="card-skeleton">
+      {showHeader && (
+        <CardHeader>
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </CardHeader>
+      )}
+      <CardContent className="space-y-3">
+        {Array.from({ length: lines }).map((_, i) => (
+          <Skeleton 
+            key={i} 
+            className={cn(
+              'h-4',
+              i === lines - 1 ? 'w-2/3' : 'w-full'
+            )} 
+          />
+        ))}
+      </CardContent>
+    </Card>
+  ),
+};
