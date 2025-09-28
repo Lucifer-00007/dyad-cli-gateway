@@ -1,0 +1,70 @@
+# ZAP Scanning Rules Configuration
+# Format: RULE_ID	THRESHOLD	[DESCRIPTION]
+
+# Ignore false positives for development/test endpoints
+10021	OFF	X-Content-Type-Options Header Missing (test endpoints)
+10020	OFF	X-Frame-Options Header Missing (API endpoints)
+
+# Reduce noise for expected API behavior
+10038	INFO	Content Security Policy (CSP) Header Not Set (API-only service)
+10096	INFO	Timestamp Disclosure - Unix (acceptable for API responses)
+
+# Security rules to enforce
+40012	HIGH	Cross Site Scripting (Reflected)
+40014	HIGH	Cross Site Scripting (Persistent)
+40016	HIGH	Cross Site Scripting (Persistent) - Prime
+40017	HIGH	Cross Site Scripting (Persistent) - Spider
+40018	HIGH	Cross Site Scripting (Persistent) - OtherInfo
+90019	HIGH	Server Side Code Injection
+90020	HIGH	Remote OS Command Injection
+40003	MEDIUM	CRLF Injection
+20019	MEDIUM	External Redirect
+10049	MEDIUM	Storable and Cacheable Content
+10054	MEDIUM	Cookie Without Secure Flag
+10055	MEDIUM	Cookie Without HttpOnly Flag
+10056	MEDIUM	Cookie Without SameSite Attribute
+10098	MEDIUM	Cross-Domain Misconfiguration
+
+# Authentication and session management
+10040	HIGH	Secure Pages Include Mixed Content
+10041	HIGH	HTTP to HTTPS Insecure Transition in Form Post
+10042	HIGH	HTTPS to HTTP Insecure Transition in Form Post
+10043	HIGH	User Controllable JavaScript Event (XSS)
+40008	HIGH	Parameter Tampering
+40009	HIGH	Server Side Include
+40013	HIGH	Session Fixation
+40014	HIGH	Cross Site Scripting (Persistent)
+40016	HIGH	Cross Site Scripting (Persistent) - Prime
+40017	HIGH	Cross Site Scripting (Persistent) - Spider
+40018	HIGH	Cross Site Scripting (Persistent) - OtherInfo
+
+# SQL Injection
+40018	HIGH	SQL Injection
+40019	HIGH	SQL Injection - MySQL
+40020	HIGH	SQL Injection - Hypersonic SQL
+40021	HIGH	SQL Injection - Oracle
+40022	HIGH	SQL Injection - PostgreSQL
+40023	HIGH	SQL Injection - SQLite
+
+# Path traversal and file inclusion
+6	HIGH	Path Traversal
+7	HIGH	Remote File Inclusion
+
+# Information disclosure
+10070	MEDIUM	Information Disclosure - Debug Error Messages
+10071	MEDIUM	Information Disclosure - Database Error Messages
+10094	MEDIUM	Base64 Disclosure
+10095	MEDIUM	Backup File Disclosure
+10105	MEDIUM	Weak Authentication Method
+
+# Reduce false positives for health check endpoints
+0	OFF	Directory Browsing (/health endpoint)
+10017	OFF	Cross-Domain JavaScript Source File Inclusion (/health endpoint)
+
+# Custom rules for API security
+# Rate limiting detection
+90001	MEDIUM	Rate Limiting Not Implemented
+# API versioning
+90002	INFO	API Versioning Not Implemented
+# Authentication bypass
+90003	HIGH	Authentication Bypass

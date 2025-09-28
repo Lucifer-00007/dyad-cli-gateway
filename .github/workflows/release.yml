@@ -1,0 +1,503 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Create GitHub Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    
+    outputs:
+      release-id: ${{ steps.create-release.outputs.id }}
+      release-tag: ${{ steps.get-version.outputs.version }}
+      release-upload-url: ${{ steps.create-release.outputs.upload_url }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Get version
+      id: get-version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## Changes since $PREVIOUS_TAG" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          
+          # Get commits since last tag
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD >> CHANGELOG.md
+          
+          # Get pull requests merged
+          echo "" >> CHANGELOG.md
+          echo "## Pull Requests Merged" >> CHANGELOG.md
+          git log --grep="Merge pull request" --pretty=format:"- %s" $PREVIOUS_TAG..HEAD >> CHANGELOG.md
+        else
+          echo "## Initial Release" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "First release of Dyad CLI Gateway" >> CHANGELOG.md
+        fi
+        
+        # Add security and breaking changes sections
+        echo "" >> CHANGELOG.md
+        echo "## Security Updates" >> CHANGELOG.md
+        git log --grep="security\|Security\|CVE\|vulnerability" --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD >> CHANGELOG.md || echo "- No security updates" >> CHANGELOG.md
+        
+        echo "" >> CHANGELOG.md
+        echo "## Breaking Changes" >> CHANGELOG.md
+        git log --grep="BREAKING\|breaking" --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD >> CHANGELOG.md || echo "- No breaking changes" >> CHANGELOG.md
+
+    - name: Create Release
+      id: create-release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get-version.outputs.version }}
+        release_name: Release ${{ steps.get-version.outputs.version }}
+        body_path: CHANGELOG.md
+        draft: false
+        prerelease: ${{ github.event.inputs.prerelease || false }}
+
+  # Build and publish release artifacts
+  build-release-artifacts:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: write
+      packages: write
+
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata (backend)
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Extract metadata (gateway)
+      id: meta-gateway
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-gateway
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        platforms: ${{ matrix.platform }}
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push gateway image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.gateway
+        platforms: ${{ matrix.platform }}
+        push: true
+        tags: ${{ steps.meta-gateway.outputs.tags }}
+        labels: ${{ steps.meta-gateway.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Generate and upload release assets
+  generate-release-assets:
+    name: Generate Release Assets
+    runs-on: ubuntu-latest
+    needs: [create-release, build-release-artifacts]
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Generate deployment manifests
+      run: |
+        mkdir -p release-assets
+        
+        # Generate Kubernetes manifests
+        cat > release-assets/k8s-deployment.yaml << 'EOF'
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: dyad-cli-gateway-backend
+          labels:
+            app: dyad-cli-gateway-backend
+            version: ${{ needs.create-release.outputs.release-tag }}
+        spec:
+          replicas: 3
+          selector:
+            matchLabels:
+              app: dyad-cli-gateway-backend
+          template:
+            metadata:
+              labels:
+                app: dyad-cli-gateway-backend
+            spec:
+              containers:
+              - name: backend
+                image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.create-release.outputs.release-tag }}
+                ports:
+                - containerPort: 3000
+                env:
+                - name: NODE_ENV
+                  value: "production"
+                resources:
+                  requests:
+                    memory: "256Mi"
+                    cpu: "250m"
+                  limits:
+                    memory: "512Mi"
+                    cpu: "500m"
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: dyad-cli-gateway-backend-service
+        spec:
+          selector:
+            app: dyad-cli-gateway-backend
+          ports:
+          - port: 80
+            targetPort: 3000
+          type: ClusterIP
+        EOF
+
+        # Generate Docker Compose for production
+        cat > release-assets/docker-compose.prod.yaml << 'EOF'
+        version: '3.8'
+        services:
+          backend:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.create-release.outputs.release-tag }}
+            ports:
+              - "3000:3000"
+            environment:
+              - NODE_ENV=production
+            restart: unless-stopped
+            
+          gateway:
+            image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-gateway:${{ needs.create-release.outputs.release-tag }}
+            ports:
+              - "8080:8080"
+            environment:
+              - NODE_ENV=production
+            restart: unless-stopped
+            
+          mongodb:
+            image: mongo:4.4
+            environment:
+              - MONGO_INITDB_ROOT_USERNAME=admin
+              - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+            volumes:
+              - mongodb_data:/data/db
+            restart: unless-stopped
+            
+        volumes:
+          mongodb_data:
+        EOF
+
+        # Generate Helm chart values
+        cat > release-assets/helm-values.yaml << 'EOF'
+        image:
+          repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+          tag: ${{ needs.create-release.outputs.release-tag }}
+          pullPolicy: IfNotPresent
+
+        replicaCount: 3
+
+        service:
+          type: ClusterIP
+          port: 80
+          targetPort: 3000
+
+        ingress:
+          enabled: true
+          annotations:
+            kubernetes.io/ingress.class: nginx
+            cert-manager.io/cluster-issuer: letsencrypt-prod
+          hosts:
+            - host: dyad-cli-gateway.com
+              paths:
+                - path: /
+                  pathType: Prefix
+          tls:
+            - secretName: dyad-cli-gateway-tls
+              hosts:
+                - dyad-cli-gateway.com
+
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+        autoscaling:
+          enabled: true
+          minReplicas: 3
+          maxReplicas: 10
+          targetCPUUtilizationPercentage: 70
+        EOF
+
+    - name: Generate installation script
+      run: |
+        cat > release-assets/install.sh << 'EOF'
+        #!/bin/bash
+        set -e
+
+        VERSION="${1:-${{ needs.create-release.outputs.release-tag }}}"
+        INSTALL_DIR="${2:-/opt/dyad-cli-gateway}"
+
+        echo "Installing Dyad CLI Gateway $VERSION..."
+
+        # Create installation directory
+        sudo mkdir -p $INSTALL_DIR
+        cd $INSTALL_DIR
+
+        # Download docker-compose file
+        curl -L -o docker-compose.yml \
+          "https://github.com/${{ github.repository }}/releases/download/$VERSION/docker-compose.prod.yaml"
+
+        # Create environment file template
+        cat > .env.template << 'ENVEOF'
+        NODE_ENV=production
+        JWT_SECRET=your-jwt-secret-here
+        MONGODB_URL=mongodb://admin:password@mongodb:27017/dyad?authSource=admin
+        MONGO_PASSWORD=your-mongo-password-here
+        ENVEOF
+
+        # Create systemd service
+        sudo tee /etc/systemd/system/dyad-cli-gateway.service > /dev/null << 'SERVICEEOF'
+        [Unit]
+        Description=Dyad CLI Gateway
+        Requires=docker.service
+        After=docker.service
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        WorkingDirectory=/opt/dyad-cli-gateway
+        ExecStart=/usr/local/bin/docker-compose up -d
+        ExecStop=/usr/local/bin/docker-compose down
+        TimeoutStartSec=0
+
+        [Install]
+        WantedBy=multi-user.target
+        SERVICEEOF
+
+        echo "Installation completed!"
+        echo "1. Copy .env.template to .env and configure your settings"
+        echo "2. Run: sudo systemctl enable dyad-cli-gateway"
+        echo "3. Run: sudo systemctl start dyad-cli-gateway"
+        EOF
+
+        chmod +x release-assets/install.sh
+
+    - name: Generate security report
+      run: |
+        cd backend
+        npm run security:audit
+        cp security-reports/security-audit-*.json ../release-assets/security-report.json
+
+    - name: Create release archive
+      run: |
+        tar -czf dyad-cli-gateway-${{ needs.create-release.outputs.release-tag }}.tar.gz release-assets/
+        zip -r dyad-cli-gateway-${{ needs.create-release.outputs.release-tag }}.zip release-assets/
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.release-upload-url }}
+        asset_path: ./dyad-cli-gateway-${{ needs.create-release.outputs.release-tag }}.tar.gz
+        asset_name: dyad-cli-gateway-${{ needs.create-release.outputs.release-tag }}.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload release assets (zip)
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.release-upload-url }}
+        asset_path: ./dyad-cli-gateway-${{ needs.create-release.outputs.release-tag }}.zip
+        asset_name: dyad-cli-gateway-${{ needs.create-release.outputs.release-tag }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload individual assets
+      run: |
+        for file in release-assets/*; do
+          filename=$(basename "$file")
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"$file" \
+            "${{ needs.create-release.outputs.release-upload-url }}?name=$filename"
+        done
+
+  # Update documentation
+  update-documentation:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update version in documentation
+      run: |
+        # Update README with new version
+        sed -i "s/Version: .*/Version: ${{ needs.create-release.outputs.release-tag }}/" README.md
+        
+        # Update package.json version
+        cd backend
+        npm version ${{ needs.create-release.outputs.release-tag }} --no-git-tag-version
+        
+        # Update OpenAPI spec version
+        cd ../md-docs
+        sed -i "s/version: .*/version: '${{ needs.create-release.outputs.release-tag }}'/" openapi.yaml
+
+    - name: Commit version updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .
+        git commit -m "chore: update version to ${{ needs.create-release.outputs.release-tag }}" || exit 0
+        git push
+
+  # Notify stakeholders
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [create-release, build-release-artifacts, generate-release-assets]
+    if: always()
+
+    steps:
+    - name: Notify Slack
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: |
+          🚀 New release published: ${{ needs.create-release.outputs.release-tag }}
+          
+          📦 Release: https://github.com/${{ github.repository }}/releases/tag/${{ needs.create-release.outputs.release-tag }}
+          🐳 Images: 
+          - Backend: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ needs.create-release.outputs.release-tag }}
+          - Gateway: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-gateway:${{ needs.create-release.outputs.release-tag }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: |
+          ❌ Release ${{ needs.create-release.outputs.release-tag }} failed
+          
+          Please check the workflow: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Create GitHub issue on failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `Release ${{ needs.create-release.outputs.release-tag }} failed`,
+            body: `The release workflow for version ${{ needs.create-release.outputs.release-tag }} has failed.
+            
+            **Workflow Run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Please investigate and retry the release process.`,
+            labels: ['bug', 'release', 'high-priority']
+          });

@@ -1,0 +1,443 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      version:
+        description: 'Version to deploy (tag or commit SHA)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Deployment to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.dyad-cli-gateway.com
+    permissions:
+      contents: read
+      packages: read
+      deployments: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set deployment version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ github.sha }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create deployment
+      id: deployment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: '${{ steps.version.outputs.version }}',
+            environment: 'staging',
+            description: 'Deploying to staging environment',
+            auto_merge: false,
+            required_contexts: []
+          });
+          return deployment.data.id;
+
+    - name: Set deployment status to in_progress
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'in_progress',
+            description: 'Deployment started'
+          });
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Deploy to ECS Staging
+      run: |
+        # Update ECS service with new image
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-staging \
+          --service dyad-cli-gateway-backend \
+          --force-new-deployment \
+          --task-definition dyad-cli-gateway-backend:LATEST
+
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-staging \
+          --service dyad-cli-gateway-gateway \
+          --force-new-deployment \
+          --task-definition dyad-cli-gateway-gateway:LATEST
+
+    - name: Wait for deployment to complete
+      run: |
+        aws ecs wait services-stable \
+          --cluster dyad-cli-gateway-staging \
+          --services dyad-cli-gateway-backend dyad-cli-gateway-gateway
+
+    - name: Run smoke tests
+      run: |
+        # Wait for service to be ready
+        sleep 30
+        
+        # Run basic health checks
+        curl -f https://staging.dyad-cli-gateway.com/health || exit 1
+        curl -f https://staging.dyad-cli-gateway.com/v1/models \
+          -H "Authorization: Bearer ${{ secrets.STAGING_API_KEY }}" || exit 1
+
+    - name: Run integration tests against staging
+      run: |
+        cd backend
+        npm ci
+        npm run test:e2e
+      env:
+        TEST_BASE_URL: https://staging.dyad-cli-gateway.com
+        TEST_API_KEY: ${{ secrets.STAGING_API_KEY }}
+
+    - name: Set deployment status to success
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'success',
+            description: 'Deployment completed successfully',
+            environment_url: 'https://staging.dyad-cli-gateway.com'
+          });
+
+    - name: Set deployment status to failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'failure',
+            description: 'Deployment failed'
+          });
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deployment failed, initiating rollback..."
+        # Get previous successful deployment
+        PREVIOUS_TASK_DEF=$(aws ecs describe-services \
+          --cluster dyad-cli-gateway-staging \
+          --services dyad-cli-gateway-backend \
+          --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition' \
+          --output text)
+        
+        # Rollback to previous version
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-staging \
+          --service dyad-cli-gateway-backend \
+          --task-definition $PREVIOUS_TASK_DEF
+
+  # Production Deployment (requires manual approval)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    needs: [deploy-staging]
+    environment:
+      name: production
+      url: https://dyad-cli-gateway.com
+    permissions:
+      contents: read
+      packages: read
+      deployments: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set deployment version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create deployment
+      id: deployment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: '${{ steps.version.outputs.version }}',
+            environment: 'production',
+            description: 'Deploying to production environment',
+            auto_merge: false,
+            required_contexts: []
+          });
+          return deployment.data.id;
+
+    - name: Set deployment status to in_progress
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'in_progress',
+            description: 'Production deployment started'
+          });
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Create backup of current deployment
+      id: backup
+      run: |
+        # Create backup of current task definitions
+        BACKEND_TASK_DEF=$(aws ecs describe-services \
+          --cluster dyad-cli-gateway-prod \
+          --services dyad-cli-gateway-backend \
+          --query 'services[0].taskDefinition' \
+          --output text)
+        
+        GATEWAY_TASK_DEF=$(aws ecs describe-services \
+          --cluster dyad-cli-gateway-prod \
+          --services dyad-cli-gateway-gateway \
+          --query 'services[0].taskDefinition' \
+          --output text)
+        
+        echo "backend_task_def=$BACKEND_TASK_DEF" >> $GITHUB_OUTPUT
+        echo "gateway_task_def=$GATEWAY_TASK_DEF" >> $GITHUB_OUTPUT
+        
+        # Store backup info
+        echo "Backup created - Backend: $BACKEND_TASK_DEF, Gateway: $GATEWAY_TASK_DEF"
+
+    - name: Deploy to ECS Production (Blue-Green)
+      run: |
+        # Deploy with blue-green strategy
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-prod \
+          --service dyad-cli-gateway-backend \
+          --force-new-deployment \
+          --task-definition dyad-cli-gateway-backend:LATEST \
+          --deployment-configuration "minimumHealthyPercent=50,maximumPercent=200"
+
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-prod \
+          --service dyad-cli-gateway-gateway \
+          --force-new-deployment \
+          --task-definition dyad-cli-gateway-gateway:LATEST \
+          --deployment-configuration "minimumHealthyPercent=50,maximumPercent=200"
+
+    - name: Wait for deployment to stabilize
+      run: |
+        aws ecs wait services-stable \
+          --cluster dyad-cli-gateway-prod \
+          --services dyad-cli-gateway-backend dyad-cli-gateway-gateway
+
+    - name: Run production smoke tests
+      run: |
+        # Wait for service to be ready
+        sleep 60
+        
+        # Run comprehensive health checks
+        curl -f https://dyad-cli-gateway.com/health || exit 1
+        curl -f https://dyad-cli-gateway.com/v1/models \
+          -H "Authorization: Bearer ${{ secrets.PRODUCTION_API_KEY }}" || exit 1
+        
+        # Test critical endpoints
+        curl -f https://dyad-cli-gateway.com/v1/chat/completions \
+          -X POST \
+          -H "Authorization: Bearer ${{ secrets.PRODUCTION_API_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"model":"test-model","messages":[{"role":"user","content":"test"}]}' || exit 1
+
+    - name: Run production integration tests
+      run: |
+        cd backend
+        npm ci
+        npm run test:e2e
+      env:
+        TEST_BASE_URL: https://dyad-cli-gateway.com
+        TEST_API_KEY: ${{ secrets.PRODUCTION_API_KEY }}
+
+    - name: Monitor deployment health
+      run: |
+        # Monitor for 5 minutes to ensure stability
+        for i in {1..10}; do
+          echo "Health check $i/10..."
+          curl -f https://dyad-cli-gateway.com/health || exit 1
+          sleep 30
+        done
+
+    - name: Set deployment status to success
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'success',
+            description: 'Production deployment completed successfully',
+            environment_url: 'https://dyad-cli-gateway.com'
+          });
+
+    - name: Set deployment status to failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'failure',
+            description: 'Production deployment failed'
+          });
+
+    - name: Rollback production on failure
+      if: failure()
+      run: |
+        echo "Production deployment failed, initiating immediate rollback..."
+        
+        # Rollback to previous versions
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-prod \
+          --service dyad-cli-gateway-backend \
+          --task-definition ${{ steps.backup.outputs.backend_task_def }}
+
+        aws ecs update-service \
+          --cluster dyad-cli-gateway-prod \
+          --service dyad-cli-gateway-gateway \
+          --task-definition ${{ steps.backup.outputs.gateway_task_def }}
+
+        # Wait for rollback to complete
+        aws ecs wait services-stable \
+          --cluster dyad-cli-gateway-prod \
+          --services dyad-cli-gateway-backend dyad-cli-gateway-gateway
+
+        # Verify rollback
+        curl -f https://dyad-cli-gateway.com/health || echo "Rollback verification failed"
+
+    - name: Notify deployment success
+      if: success()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: '${{ steps.version.outputs.version }}'
+          });
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: release.id,
+            body: '🚀 Successfully deployed to production!\n\n✅ All health checks passed\n✅ Integration tests completed\n\nProduction URL: https://dyad-cli-gateway.com'
+          });
+
+  # Rollback workflow (manual trigger)
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Get previous deployment
+      id: previous
+      run: |
+        CLUSTER="dyad-cli-gateway-${{ github.event.inputs.environment }}"
+        
+        # Get deployment history
+        DEPLOYMENTS=$(aws ecs describe-services \
+          --cluster $CLUSTER \
+          --services dyad-cli-gateway-backend \
+          --query 'services[0].deployments[?status!=`PRIMARY`] | [0].taskDefinition' \
+          --output text)
+        
+        echo "previous_task_def=$DEPLOYMENTS" >> $GITHUB_OUTPUT
+
+    - name: Rollback to previous version
+      run: |
+        CLUSTER="dyad-cli-gateway-${{ github.event.inputs.environment }}"
+        
+        aws ecs update-service \
+          --cluster $CLUSTER \
+          --service dyad-cli-gateway-backend \
+          --task-definition ${{ steps.previous.outputs.previous_task_def }}
+
+        aws ecs update-service \
+          --cluster $CLUSTER \
+          --service dyad-cli-gateway-gateway \
+          --task-definition ${{ steps.previous.outputs.previous_task_def }}
+
+    - name: Wait for rollback to complete
+      run: |
+        CLUSTER="dyad-cli-gateway-${{ github.event.inputs.environment }}"
+        aws ecs wait services-stable \
+          --cluster $CLUSTER \
+          --services dyad-cli-gateway-backend dyad-cli-gateway-gateway
+
+    - name: Verify rollback
+      run: |
+        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+          URL="https://dyad-cli-gateway.com"
+        else
+          URL="https://staging.dyad-cli-gateway.com"
+        fi
+        
+        curl -f $URL/health || exit 1
+        echo "Rollback completed successfully"

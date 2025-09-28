@@ -1,0 +1,379 @@
+{
+  "auditId": "373898bc-ffab-4126-a988-7e67e08717a0",
+  "timestamp": "2025-09-28T02:49:59.592Z",
+  "duration": "306ms",
+  "summary": {
+    "total": 23,
+    "critical": 18,
+    "high": 0,
+    "medium": 5,
+    "low": 0
+  },
+  "findings": [
+    {
+      "id": "35e30523-9574-47a5-a9bc-baaa329b6772",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/.travis.yml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/.travis.yml",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.608Z"
+    },
+    {
+      "id": "98833749-0f8d-47b8-b085-7a21fa1b599f",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/deployment/kubernetes/secret.yaml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/deployment/kubernetes/secret.yaml",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.611Z"
+    },
+    {
+      "id": "278fa494-a37f-46dd-a183-a694f22e0ca9",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/docker-compose.gateway.yml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/docker-compose.gateway.yml",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.611Z"
+    },
+    {
+      "id": "ec515821-b07c-41c0-9ec4-6dee66242bc0",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/docker-compose.integration.yml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/docker-compose.integration.yml",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.611Z"
+    },
+    {
+      "id": "2eca13d6-9a9d-46fe-a9fa-9ca03edecbe1",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/docker-compose.yml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/docker-compose.yml",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.612Z"
+    },
+    {
+      "id": "946c973e-20cb-4dec-9b0b-a9423f55a182",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/package-lock.json",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/package-lock.json",
+        "secretType": "AWS Secret Key",
+        "matches": 2728
+      },
+      "timestamp": "2025-09-28T02:49:59.621Z"
+    },
+    {
+      "id": "62450fa8-54bc-41f5-97e2-2304b5b386dc",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/scripts/test-mvp-complete.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/scripts/test-mvp-complete.js",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.623Z"
+    },
+    {
+      "id": "e7d6c1bd-26b3-4dcb-b1bc-e9bdc8d8f4e6",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/scripts/test-mvp-essential.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/scripts/test-mvp-essential.js",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.623Z"
+    },
+    {
+      "id": "be8cbae8-ff44-459f-81d1-f0c7c1602730",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/docs/components.yml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/docs/components.yml",
+        "secretType": "AWS Secret Key",
+        "matches": 2
+      },
+      "timestamp": "2025-09-28T02:49:59.625Z"
+    },
+    {
+      "id": "0818239f-c4cd-49c4-a198-0dbf8af2686a",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "JWT Token Exposed in Source Code",
+      "description": "Potential JWT Token found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/docs/components.yml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/docs/components.yml",
+        "secretType": "JWT Token",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.625Z"
+    },
+    {
+      "id": "6dac370c-0668-4b3b-9b23-07b4134850f0",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/routes/v1/auth.route.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/routes/v1/auth.route.js",
+        "secretType": "AWS Secret Key",
+        "matches": 4
+      },
+      "timestamp": "2025-09-28T02:49:59.643Z"
+    },
+    {
+      "id": "16d0d0a6-eb43-4689-8837-ea18d0aa6dae",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "JWT Token Exposed in Source Code",
+      "description": "Potential JWT Token found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/routes/v1/auth.route.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/routes/v1/auth.route.js",
+        "secretType": "JWT Token",
+        "matches": 2
+      },
+      "timestamp": "2025-09-28T02:49:59.643Z"
+    },
+    {
+      "id": "f2bdcf94-bbda-429b-925b-af2759d911a8",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/integration/gateway/admin-endpoints.test.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/integration/gateway/admin-endpoints.test.js",
+        "secretType": "AWS Secret Key",
+        "matches": 5
+      },
+      "timestamp": "2025-09-28T02:49:59.647Z"
+    },
+    {
+      "id": "8b9b86b6-db45-486b-860c-23fa3ebc4699",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/unit/gateway/middlewares/gatewayRateLimit.test.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/unit/gateway/middlewares/gatewayRateLimit.test.js",
+        "secretType": "AWS Secret Key",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.655Z"
+    },
+    {
+      "id": "5074369d-d32b-4d88-bf61-746c01e7e38c",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "MongoDB Connection String Exposed in Source Code",
+      "description": "Potential MongoDB Connection String found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/unit/models/setup.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/unit/models/setup.js",
+        "secretType": "MongoDB Connection String",
+        "matches": 1
+      },
+      "timestamp": "2025-09-28T02:49:59.659Z"
+    },
+    {
+      "id": "e5b77495-574a-4f0a-823b-ed0b6cd06aae",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/unit/services/credential.service.test.js",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/tests/unit/services/credential.service.test.js",
+        "secretType": "AWS Secret Key",
+        "matches": 7
+      },
+      "timestamp": "2025-09-28T02:49:59.660Z"
+    },
+    {
+      "id": "68f9dc22-7737-453a-8a3b-5250f03355ec",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/frontend/package-lock.json",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/frontend/package-lock.json",
+        "secretType": "AWS Secret Key",
+        "matches": 914
+      },
+      "timestamp": "2025-09-28T02:49:59.663Z"
+    },
+    {
+      "id": "f324cab4-2aa6-4d84-8485-53ba8c5fca6c",
+      "severity": "CRITICAL",
+      "category": "Secrets Management",
+      "title": "AWS Secret Key Exposed in Source Code",
+      "description": "Potential AWS Secret Key found in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/md-docs/openapi.yaml",
+      "recommendation": "Remove secrets from source code and use environment variables or secret management",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/md-docs/openapi.yaml",
+        "secretType": "AWS Secret Key",
+        "matches": 20
+      },
+      "timestamp": "2025-09-28T02:49:59.666Z"
+    },
+    {
+      "id": "8e4ed7c3-2d70-4980-8816-085083e2190c",
+      "severity": "MEDIUM",
+      "category": "Network Security",
+      "title": "HTTP URLs in Configuration",
+      "description": "HTTP URLs detected in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/monitoring/grafana/provisioning/datasources/prometheus.yml - should use HTTPS",
+      "recommendation": "Replace HTTP URLs with HTTPS equivalents",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/monitoring/grafana/provisioning/datasources/prometheus.yml",
+        "urls": [
+          "http://"
+        ]
+      },
+      "timestamp": "2025-09-28T02:49:59.670Z"
+    },
+    {
+      "id": "468674f7-af71-444f-95a0-cc065aae4684",
+      "severity": "MEDIUM",
+      "category": "Network Security",
+      "title": "HTTP URLs in Configuration",
+      "description": "HTTP URLs detected in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/package-lock.json - should use HTTPS",
+      "recommendation": "Replace HTTP URLs with HTTPS equivalents",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/package-lock.json",
+        "urls": [
+          "http://",
+          "http://"
+        ]
+      },
+      "timestamp": "2025-09-28T02:49:59.670Z"
+    },
+    {
+      "id": "16283191-34bd-45d8-9952-9f9701972980",
+      "severity": "MEDIUM",
+      "category": "Network Security",
+      "title": "HTTP URLs in Configuration",
+      "description": "HTTP URLs detected in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/scripts/security-test.js - should use HTTPS",
+      "recommendation": "Replace HTTP URLs with HTTPS equivalents",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/scripts/security-test.js",
+        "urls": [
+          "http://"
+        ]
+      },
+      "timestamp": "2025-09-28T02:49:59.670Z"
+    },
+    {
+      "id": "55fc7a8f-ee47-410a-80c4-cb6f9613b91a",
+      "severity": "MEDIUM",
+      "category": "Network Security",
+      "title": "HTTP URLs in Configuration",
+      "description": "HTTP URLs detected in /Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/services/email.service.js - should use HTTPS",
+      "recommendation": "Replace HTTP URLs with HTTPS equivalents",
+      "evidence": {
+        "file": "/Users/ani/Developer/ANI/Onlink_web_service/dyad-cli-gateway/backend/src/services/email.service.js",
+        "urls": [
+          "http://",
+          "http://"
+        ]
+      },
+      "timestamp": "2025-09-28T02:49:59.671Z"
+    },
+    {
+      "id": "33c45695-8c8a-481a-8c2b-137d8de3785a",
+      "severity": "MEDIUM",
+      "category": "Dependencies",
+      "title": "Dependency Audit Failed",
+      "description": "Could not run npm audit to check for vulnerabilities",
+      "recommendation": "Ensure npm audit can run and investigate any blocking issues",
+      "evidence": {
+        "error": "Command failed: npm audit --json\nnpm error code ENOLOCK\nnpm error audit This command requires an existing lockfile.\nnpm error audit Try creating one first with: npm i --package-lock-only\nnpm error audit Original error: loadVirtual requires existing shrinkwrap file\nnpm error A complete log of this run can be found in: /Users/ani/.npm/_logs/2025-09-28T02_49_59_735Z-debug-0.log\n"
+      },
+      "timestamp": "2025-09-28T02:49:59.897Z"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "IMMEDIATE",
+      "title": "Address Critical Security Issues",
+      "description": "18 critical security issues require immediate attention",
+      "actions": [
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management",
+        "Remove secrets from source code and use environment variables or secret management"
+      ]
+    },
+    {
+      "priority": "ONGOING",
+      "title": "Implement Security Best Practices",
+      "description": "Continuous security improvements",
+      "actions": [
+        "Regular dependency updates",
+        "Automated security scanning in CI/CD",
+        "Security training for development team",
+        "Regular penetration testing",
+        "Security code reviews"
+      ]
+    }
+  ]
+}

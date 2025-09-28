@@ -1,0 +1,231 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: dyad-cli-gateway-alerts
+  namespace: dyad-cli-gateway-prod
+  labels:
+    app: dyad-cli-gateway
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: dyad-cli-gateway.rules
+    interval: 30s
+    rules:
+    
+    # High-level service availability
+    - alert: DyadGatewayDown
+      expr: up{job="dyad-cli-gateway"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Dyad CLI Gateway is down"
+        description: "Dyad CLI Gateway has been down for more than 1 minute"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/service-down"
+
+    # Response time alerts
+    - alert: DyadGatewayHighResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="dyad-cli-gateway"}[5m])) > 0.5
+      for: 5m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "High response time detected"
+        description: "95th percentile response time is {{ $value }}s for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/high-response-time"
+
+    - alert: DyadGatewayCriticalResponseTime
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="dyad-cli-gateway"}[5m])) > 1.0
+      for: 2m
+      labels:
+        severity: critical
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Critical response time detected"
+        description: "95th percentile response time is {{ $value }}s for the last 2 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/critical-response-time"
+
+    # Error rate alerts
+    - alert: DyadGatewayHighErrorRate
+      expr: rate(http_requests_total{job="dyad-cli-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="dyad-cli-gateway"}[5m]) > 0.05
+      for: 3m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "High error rate detected"
+        description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/high-error-rate"
+
+    - alert: DyadGatewayCriticalErrorRate
+      expr: rate(http_requests_total{job="dyad-cli-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="dyad-cli-gateway"}[5m]) > 0.10
+      for: 1m
+      labels:
+        severity: critical
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Critical error rate detected"
+        description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/critical-error-rate"
+
+    # Throughput alerts
+    - alert: DyadGatewayLowThroughput
+      expr: rate(http_requests_total{job="dyad-cli-gateway"}[5m]) < 10
+      for: 10m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Low throughput detected"
+        description: "Request rate is {{ $value }} requests/second for the last 10 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/low-throughput"
+
+    # Resource usage alerts
+    - alert: DyadGatewayHighCPUUsage
+      expr: rate(process_cpu_seconds_total{job="dyad-cli-gateway"}[5m]) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "High CPU usage detected"
+        description: "CPU usage is {{ $value }}% for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/high-cpu"
+
+    - alert: DyadGatewayHighMemoryUsage
+      expr: process_resident_memory_bytes{job="dyad-cli-gateway"} / 1024 / 1024 > 400
+      for: 5m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "High memory usage detected"
+        description: "Memory usage is {{ $value }}MB for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/high-memory"
+
+    # Database connectivity
+    - alert: DyadGatewayDatabaseConnectionFailure
+      expr: mongodb_connections_failed_total{job="dyad-cli-gateway"} > 0
+      for: 1m
+      labels:
+        severity: critical
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Database connection failures detected"
+        description: "{{ $value }} database connection failures in the last minute"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/database-connection"
+
+    # Security alerts
+    - alert: DyadGatewayHighAuthFailureRate
+      expr: rate(auth_failures_total{job="dyad-cli-gateway"}[5m]) > 5
+      for: 2m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+        security: "true"
+      annotations:
+        summary: "High authentication failure rate"
+        description: "{{ $value }} authentication failures per second for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/auth-failures"
+
+    - alert: DyadGatewayRateLimitExceeded
+      expr: rate(rate_limit_exceeded_total{job="dyad-cli-gateway"}[5m]) > 10
+      for: 1m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+        security: "true"
+      annotations:
+        summary: "Rate limit frequently exceeded"
+        description: "Rate limit exceeded {{ $value }} times per second for the last 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/rate-limit"
+
+    # Provider-specific alerts
+    - alert: DyadGatewayProviderFailure
+      expr: rate(provider_requests_failed_total{job="dyad-cli-gateway"}[5m]) / rate(provider_requests_total{job="dyad-cli-gateway"}[5m]) > 0.20
+      for: 3m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "High provider failure rate"
+        description: "Provider {{ $labels.provider }} has {{ $value | humanizePercentage }} failure rate"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/provider-failure"
+
+    - alert: DyadGatewayCircuitBreakerOpen
+      expr: circuit_breaker_state{job="dyad-cli-gateway"} == 1
+      for: 1m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Circuit breaker is open"
+        description: "Circuit breaker for provider {{ $labels.provider }} is open"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/circuit-breaker"
+
+    # Kubernetes-specific alerts
+    - alert: DyadGatewayPodCrashLooping
+      expr: rate(kube_pod_container_status_restarts_total{namespace="dyad-cli-gateway-prod",pod=~"dyad-cli-gateway-.*"}[15m]) > 0
+      for: 5m
+      labels:
+        severity: critical
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Pod is crash looping"
+        description: "Pod {{ $labels.pod }} is restarting frequently"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/pod-crash-loop"
+
+    - alert: DyadGatewayPodNotReady
+      expr: kube_pod_status_ready{namespace="dyad-cli-gateway-prod",pod=~"dyad-cli-gateway-.*",condition="false"} == 1
+      for: 5m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Pod is not ready"
+        description: "Pod {{ $labels.pod }} has been not ready for more than 5 minutes"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/pod-not-ready"
+
+    # Deployment alerts
+    - alert: DyadGatewayDeploymentReplicasMismatch
+      expr: kube_deployment_spec_replicas{namespace="dyad-cli-gateway-prod",deployment=~"dyad-cli-gateway-.*"} != kube_deployment_status_replicas_available{namespace="dyad-cli-gateway-prod",deployment=~"dyad-cli-gateway-.*"}
+      for: 10m
+      labels:
+        severity: warning
+        service: dyad-cli-gateway
+      annotations:
+        summary: "Deployment replicas mismatch"
+        description: "Deployment {{ $labels.deployment }} has {{ $labels.spec_replicas }} desired but {{ $labels.available_replicas }} available replicas"
+        runbook_url: "https://docs.dyad-cli-gateway.com/runbooks/replica-mismatch"
+
+  - name: dyad-cli-gateway.recording
+    interval: 30s
+    rules:
+    
+    # Recording rules for dashboards
+    - record: dyad_gateway:http_request_rate
+      expr: rate(http_requests_total{job="dyad-cli-gateway"}[5m])
+
+    - record: dyad_gateway:http_request_error_rate
+      expr: rate(http_requests_total{job="dyad-cli-gateway",status=~"5.."}[5m]) / rate(http_requests_total{job="dyad-cli-gateway"}[5m])
+
+    - record: dyad_gateway:http_request_duration_p95
+      expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="dyad-cli-gateway"}[5m]))
+
+    - record: dyad_gateway:http_request_duration_p99
+      expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="dyad-cli-gateway"}[5m]))
+
+    - record: dyad_gateway:provider_success_rate
+      expr: rate(provider_requests_total{job="dyad-cli-gateway",status="success"}[5m]) / rate(provider_requests_total{job="dyad-cli-gateway"}[5m])
+
+    - record: dyad_gateway:active_connections
+      expr: sum(active_connections{job="dyad-cli-gateway"})
+
+    - record: dyad_gateway:memory_usage_percent
+      expr: process_resident_memory_bytes{job="dyad-cli-gateway"} / process_virtual_memory_max_bytes{job="dyad-cli-gateway"} * 100
+
+    - record: dyad_gateway:cpu_usage_percent
+      expr: rate(process_cpu_seconds_total{job="dyad-cli-gateway"}[5m]) * 100

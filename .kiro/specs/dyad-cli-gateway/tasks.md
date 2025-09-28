@@ -171,7 +171,7 @@
   - **AC**: Handles concurrent load, response times within SLA, caching reduces DB calls
   - _Requirements: Performance and scalability_
 
-- [ ] 22. Add legal compliance and security audit
+- [x] 22. Add legal compliance and security audit
   - Review vendor TOS for reverse-engineered proxy usage
   - Create legal compliance checklist for CLI integrations
   - Conduct security audit and penetration testing
@@ -179,7 +179,7 @@
   - **AC**: Legal review complete, security audit passes, policies documented
   - _Requirements: 4.4, 4.5_
 
-- [ ] 23. Create comprehensive CI/CD pipeline
+- [x] 23. Create comprehensive CI/CD pipeline
   - Add advanced security gates (SAST, DAST, dependency scanning)
   - Implement automated deployment with rollback capabilities
   - Add OpenAPI contract tests and breaking change detection

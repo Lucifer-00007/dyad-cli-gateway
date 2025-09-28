@@ -1,14 +1,97 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main, develop ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, develop ]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  test:
+  # Security and Quality Gates
+  security-scan:
+    name: Security Scanning
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better analysis
+
+    # SAST - Static Application Security Testing
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+        queries: security-extended,security-and-quality
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+    # Secret Scanning
+    - name: Run TruffleHog OSS
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+    # Dependency Scanning
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high --file=backend/package.json
+
+    - name: Upload Snyk results to GitHub Code Scanning
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: snyk.sarif
+
+    # Custom Security Audit
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+
+    - name: Run custom security audit
+      run: |
+        cd backend
+        npm run security:audit
+
+    - name: Upload security audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-results
+        path: backend/security-reports/
+
+  # Code Quality and Testing
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: security-scan
 
     services:
       mongodb:
@@ -26,7 +109,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [16.x, 18.x, 20.x]
+        node-version: [18.x, 20.x]
 
     steps:
     - name: Checkout code
@@ -44,19 +127,26 @@ jobs:
         cd backend
         npm ci
 
-    - name: Run linting
+    - name: Run linting with security rules
       run: |
         cd backend
         npm run lint
 
-    - name: Run unit tests
+    - name: Run unit tests with coverage
       run: |
         cd backend
-        npm test
+        npm run coverage
       env:
         NODE_ENV: test
-        JWT_SECRET: test-jwt-secret
+        JWT_SECRET: test-jwt-secret-for-testing-only
         MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: backend/coverage/lcov.info
+        flags: backend
+        name: backend-coverage
 
     - name: Run OpenAPI contract tests
       run: |
@@ -64,17 +154,30 @@ jobs:
         npm run test:contract
       env:
         NODE_ENV: test
-        JWT_SECRET: test-jwt-secret
+        JWT_SECRET: test-jwt-secret-for-testing-only
         MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
 
     - name: Validate OpenAPI specification
       run: |
-        # Install swagger-codegen-cli for validation
         npm install -g @apidevtools/swagger-cli
-        # Validate the OpenAPI spec
         swagger-cli validate md-docs/openapi.yaml
 
+    - name: Check for OpenAPI breaking changes
+      if: github.event_name == 'pull_request'
+      run: |
+        # Install oasdiff for breaking change detection
+        npm install -g oasdiff
+        # Compare with main branch (if exists)
+        git fetch origin main:main || echo "No main branch to compare"
+        if git show main:md-docs/openapi.yaml > /tmp/base-openapi.yaml 2>/dev/null; then
+          oasdiff breaking /tmp/base-openapi.yaml md-docs/openapi.yaml
+        else
+          echo "No base OpenAPI spec found, skipping breaking change check"
+        fi
+
+  # Integration and E2E Testing
   integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
     needs: [test]
 
@@ -114,7 +217,7 @@ jobs:
         npm test -- --testPathPattern=end-to-end-workflow.test.js --verbose
       env:
         NODE_ENV: test
-        JWT_SECRET: test-jwt-secret
+        JWT_SECRET: test-jwt-secret-for-testing-only
         MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
 
     - name: Run gateway integration tests
@@ -123,7 +226,7 @@ jobs:
         npm test -- --testPathPattern=gateway/ --verbose
       env:
         NODE_ENV: test
-        JWT_SECRET: test-jwt-secret
+        JWT_SECRET: test-jwt-secret-for-testing-only
         MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
 
     - name: Run essential MVP validation
@@ -132,11 +235,30 @@ jobs:
         npm run test:mvp-essential
       env:
         NODE_ENV: test
-        JWT_SECRET: test-jwt-secret
+        JWT_SECRET: test-jwt-secret-for-testing-only
         MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
 
+    - name: Run performance tests
+      run: |
+        cd backend
+        npm run test:performance
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test-jwt-secret-for-testing-only
+        MONGODB_URL: mongodb://root:password@localhost:27017/test?authSource=admin
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: integration-test-results
+        path: backend/test-results/
+
+  # Frontend Testing and Security
   frontend-test:
+    name: Frontend Tests
     runs-on: ubuntu-latest
+    needs: security-scan
 
     steps:
     - name: Checkout code
@@ -154,7 +276,12 @@ jobs:
         cd frontend
         npm ci
 
-    - name: Run frontend linting
+    - name: Run frontend security audit
+      run: |
+        cd frontend
+        npm audit --audit-level moderate
+
+    - name: Run frontend linting with security rules
       run: |
         cd frontend
         npm run lint
@@ -164,14 +291,38 @@ jobs:
         cd frontend
         npm run type-check
 
+    - name: Run frontend unit tests
+      run: |
+        cd frontend
+        npm test -- --coverage --watchAll=false
+      if: hashFiles('frontend/src/**/*.test.*') != ''
+
     - name: Build frontend
       run: |
         cd frontend
         npm run build
 
+    - name: Upload frontend build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist/
+
+  # Container Build and Security Scanning
   docker-build:
+    name: Container Build
     runs-on: ubuntu-latest
     needs: [test, frontend-test, integration-tests]
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    outputs:
+      backend-image: ${{ steps.meta-backend.outputs.tags }}
+      gateway-image: ${{ steps.meta-gateway.outputs.tags }}
+      backend-digest: ${{ steps.build-backend.outputs.digest }}
+      gateway-digest: ${{ steps.build-gateway.outputs.digest }}
 
     steps:
     - name: Checkout code
@@ -179,37 +330,77 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata (backend)
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Extract metadata (gateway)
+      id: meta-gateway
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-gateway
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
 
     - name: Build backend Docker image
-      run: |
-        cd backend
-        docker build -t dyad-cli-gateway:test .
+      id: build-backend
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
 
     - name: Build gateway Docker image
-      run: |
-        cd backend
-        docker build -f Dockerfile.gateway -t dyad-cli-gateway-standalone:test .
+      id: build-gateway
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.gateway
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-gateway.outputs.tags }}
+        labels: ${{ steps.meta-gateway.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
 
-  security-scan:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Run security audit (backend)
-      run: |
-        cd backend
-        npm audit --audit-level moderate
-
-    - name: Run security audit (frontend)
-      run: |
-        cd frontend
-        npm audit --audit-level moderate
-
+  # Container Security Scanning
   container-security-scan:
+    name: Container Security Scan
     runs-on: ubuntu-latest
     needs: [docker-build]
+    permissions:
+      security-events: write
+      contents: read
+
+    strategy:
+      matrix:
+        image: [backend, gateway]
 
     steps:
     - name: Checkout code
@@ -218,60 +409,125 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build backend Docker image for scanning
+    - name: Build image for scanning
       run: |
         cd backend
-        docker build -t dyad-cli-gateway:scan .
+        if [ "${{ matrix.image }}" = "backend" ]; then
+          docker build -t scan-target:latest .
+        else
+          docker build -f Dockerfile.gateway -t scan-target:latest .
+        fi
 
-    - name: Build gateway Docker image for scanning
-      run: |
-        cd backend
-        docker build -f Dockerfile.gateway -t dyad-cli-gateway-standalone:scan .
-
-    - name: Run Trivy vulnerability scanner (backend)
+    # Trivy vulnerability scanning
+    - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: 'dyad-cli-gateway:scan'
+        image-ref: 'scan-target:latest'
         format: 'sarif'
-        output: 'trivy-backend-results.sarif'
+        output: 'trivy-${{ matrix.image }}-results.sarif'
 
-    - name: Run Trivy vulnerability scanner (gateway)
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'dyad-cli-gateway-standalone:scan'
-        format: 'sarif'
-        output: 'trivy-gateway-results.sarif'
-
-    - name: Upload Trivy scan results to GitHub Security tab (backend)
+    - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
-        sarif_file: 'trivy-backend-results.sarif'
-        category: 'backend-container'
+        sarif_file: 'trivy-${{ matrix.image }}-results.sarif'
+        category: '${{ matrix.image }}-container'
 
-    - name: Upload Trivy scan results to GitHub Security tab (gateway)
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-gateway-results.sarif'
-        category: 'gateway-container'
-
-    - name: Run Trivy vulnerability scanner (backend) - table output
+    - name: Run Trivy vulnerability scanner (fail on high/critical)
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: 'dyad-cli-gateway:scan'
+        image-ref: 'scan-target:latest'
         format: 'table'
         exit-code: '1'
         ignore-unfixed: true
         vuln-type: 'os,library'
         severity: 'CRITICAL,HIGH'
 
-    - name: Run Trivy vulnerability scanner (gateway) - table output
-      uses: aquasecurity/trivy-action@master
+    # Grype vulnerability scanning (alternative scanner)
+    - name: Run Grype vulnerability scanner
+      uses: anchore/scan-action@v3
       with:
-        image-ref: 'dyad-cli-gateway-standalone:scan'
-        format: 'table'
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
+        image: 'scan-target:latest'
+        fail-build: true
+        severity-cutoff: high
+
+    # Docker Scout scanning (if available)
+    - name: Docker Scout scan
+      if: github.event_name != 'pull_request'
+      uses: docker/scout-action@v1
+      with:
+        command: cves
+        image: scan-target:latest
+        sarif-file: scout-${{ matrix.image }}-results.sarif
+
+    - name: Upload Docker Scout results
+      if: github.event_name != 'pull_request'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: scout-${{ matrix.image }}-results.sarif
+        category: 'scout-${{ matrix.image }}'
+
+  # DAST - Dynamic Application Security Testing
+  dast-scan:
+    name: DAST Security Scan
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name != 'pull_request'
+
+    services:
+      mongodb:
+        image: mongo:4.4
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: password
+        ports:
+          - 27017:27017
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and start application
+      run: |
+        cd backend
+        docker build -t dast-target:latest .
+        docker run -d --name dast-app \
+          -p 3000:3000 \
+          -e NODE_ENV=test \
+          -e MONGODB_URL=mongodb://root:password@host.docker.internal:27017/test?authSource=admin \
+          -e JWT_SECRET=test-jwt-secret-for-dast \
+          --add-host host.docker.internal:host-gateway \
+          dast-target:latest
+
+    - name: Wait for application to start
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+
+    - name: Run custom security tests
+      run: |
+        cd backend
+        npm ci
+        node scripts/security-test.js http://localhost:3000
+
+    - name: Run OWASP ZAP baseline scan
+      uses: zaproxy/action-baseline@v0.10.0
+      with:
+        target: 'http://localhost:3000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Upload ZAP results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: zap-results
+        path: report_html.html
+
+    - name: Stop application
+      if: always()
+      run: |
+        docker stop dast-app || true
+        docker rm dast-app || true
