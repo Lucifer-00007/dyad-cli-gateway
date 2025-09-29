@@ -1,298 +1,320 @@
-# Dyad CLI Gateway — README
+# Dyad CLI Gateway
 
-> **Dyad-CLI-Gateway**
-> A pluggable, OpenAI-compatible gateway that lets Dyad (or any OpenAI-compatible client) talk to CLI agents, local model servers, and vendor SDKs by exposing a single `/v1` API surface.
-> This repo/module is designed to fit inside your existing project structure (`backend/` and `frontend/`) and is intentionally backend-first so a frontend admin UI can be attached later.
+> **A pluggable, OpenAI-compatible gateway that enables Dyad (or any OpenAI-compatible client) to communicate with CLI agents, local model servers, and vendor SDKs through a unified `/v1` API surface.**
 
----
+This monorepo contains both backend and frontend applications, following a clear separation of concerns with a backend-first design that allows for optional frontend admin UI integration.
 
-## Table of contents
+## Table of Contents
 
 1. [Overview](#overview)
 2. [Features](#features)
-3. [Repository layout (where files go)](#repository-layout)
-4. [Quick start (dev)](#quick-start-dev)
-5. [Environment variables](#environment-variables)
-6. [Running via Docker / docker-compose](#running-via-docker--docker-compose)
-7. [API reference (OpenAI-compatible + admin)](#api-reference-openai-compatible--admin)
-8. [Provider config example](#provider-config-example)
-9. [Security & sandboxing notes](#security--sandboxing-notes)
-10. [Testing](#testing)
-11. [Integrating with Dyad (how to add as a Custom Provider)](#integrating-with-dyad-how-to-add-as-a-custom-provider)
-12. [Development & contribution](#development--contribution)
-13. [Roadmap / Next steps](#roadmap--next-steps)
-14. [License](#license)
+3. [Technology Stack](#technology-stack)
+4. [Repository Structure](#repository-structure)
+5. [Quick Start](#quick-start)
+6. [Environment Variables](#environment-variables)
+7. [Docker Deployment](#docker-deployment)
+8. [API Reference](#api-reference)
+9. [Provider Configuration](#provider-configuration)
+10. [Security & Sandboxing](#security--sandboxing)
+11. [Testing](#testing)
+12. [Dyad Integration](#dyad-integration)
+13. [Development](#development)
+14. [Roadmap](#roadmap)
+15. [License](#license)
 
----
+## Overview
 
-# Overview
+The Dyad CLI Gateway is a comprehensive solution that implements an OpenAI-compatible API gateway with the following capabilities:
 
-This module implements an OpenAI-compatible gateway that:
+- **OpenAI Compatibility**: Exposes standard `/v1/chat/completions`, `/v1/models`, and `/v1/embeddings` endpoints
+- **Multi-Adapter Support**: Translates requests to various backend types:
+  - `spawn-cli` - Execute CLI agents (Gemini CLI, Copilot CLI, Amazon Q CLI)
+  - `http-sdk` - Call vendor APIs through HTTP
+  - `proxy` - Forward to existing OpenAI-compatible services
+  - `local` - Connect to local model servers (Ollama, TGI, LocalAI)
+- **Admin Interface**: RESTful admin API for provider management with optional React frontend
+- **Secure Execution**: Sandboxed CLI execution using Docker containers
+- **Persistent Storage**: MongoDB-based provider configuration and model mappings
 
-* Exposes `/v1/chat/completions`, `/v1/models`, and optional `/v1/embeddings` endpoints so Dyad can call the gateway as any other model provider.
-* Translates OpenAI-style requests into calls to one of several adapter types: `spawn-cli`, `http-sdk`, `proxy`, `local` (Ollama/TGI).
-* Provides admin CRUD endpoints (`/admin/providers`) for registering providers and model mappings (designed to be used by a later frontend).
-* Supports optional sandboxed CLI execution (recommended) using a Docker-runner helper.
-* Persists provider configuration to MongoDB (leveraging your repo’s existing Mongoose setup).
+## Features
 
-This README focuses on **backend** usage, installation, configuration and examples.
+- **OpenAI-Compatible Endpoints**: Drop-in replacement for OpenAI API with `/v1/chat/completions`, `/v1/models`, and `/v1/embeddings`
+- **Pluggable Adapter System**:
+  - `spawn-cli` — Execute CLI agents with sandboxed execution
+  - `http-sdk` — Call vendor APIs (Gemini, Bedrock, etc.)
+  - `proxy` — Forward to existing OpenAI-compatible proxies
+  - `local` — Connect to local model servers (Ollama/TGI/LocalAI)
+- **Provider Registry**: MongoDB-based persistence for provider configurations
+- **Admin API**: Full CRUD operations for provider management
+- **Security Features**: API key authentication, rate limiting, sandboxed execution
+- **Streaming Support**: Optional token-by-token streaming (configurable)
+- **Docker Ready**: Containerized deployment with Docker Compose
 
----
+## Technology Stack
 
-# Features
+### Backend
+- **Runtime**: Node.js (>=12.0.0)
+- **Framework**: Express.js with comprehensive middleware ecosystem
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT with Passport.js
+- **Validation**: Joi schema validation
+- **Testing**: Jest with supertest for integration tests
+- **Process Management**: PM2 for production
+- **Logging**: Winston with Morgan for HTTP logging
+- **Security**: helmet, cors, express-rate-limit, xss-clean, express-mongo-sanitize
 
-* OpenAI-compatible endpoints for easy integration with Dyad and other OpenAI clients
-* Pluggable adapter system:
+### Frontend
+- **Build Tool**: Vite 5 with SWC plugin
+- **Framework**: React 18 with TypeScript
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **UI Components**: Radix UI primitives, Lucide icons
+- **Routing**: React Router DOM
+- **State Management**: React Query (TanStack Query) for server state
+- **Forms**: React Hook Form with Zod validation
+- **Theme**: next-themes with dark mode support
 
-  * `spawn-cli` — run CLI agents (Gemini CLI, Copilot CLI, Amazon Q CLI) via safe spawn or sandbox
-  * `http-sdk` — call vendor APIs (Gemini OpenAI-compat, Bedrock via gateway pattern)
-  * `proxy` — forward OpenAI requests to existing OpenAI-compatible proxies
-  * `local` — forward to local model servers (Ollama / TGI / LocalAI)
-* Provider registry persisted in MongoDB (Mongoose model)
-* Admin API for CRUD & testing provider configs
-* Optional streaming support (can be enabled in future)
-* Dockerized for easy deployment
-
----
-
-# Repository layout
-
-This README assumes you will add the gateway under `backend/src/gateway/`. Example tree (important files you will create):
+## Repository Structure
 
 ```
-backend/
-└── src/
-    └── gateway/
-        ├── index.js                # bootstrap (standalone service)
-        ├── gatewayApp.js           # Express app factory
-        ├── api/
-        │   ├── openai.routes.js    # OpenAI-compatible endpoints
-        │   └── admin.routes.js     # Admin CRUD endpoints
-        ├── controllers/
-        │   ├── openai.controller.js
-        │   └── admin.controller.js
-        ├── services/
-        │   ├── gateway.service.js
-        │   └── provider.service.js
-        ├── adapters/
-        │   ├── adapter.interface.js
-        │   ├── spawn-cli.adapter.js
-        │   ├── http-sdk.adapter.js
-        │   ├── proxy.adapter.js
-        │   └── local.adapter.js
-        ├── normalizers/
-        │   └── openai.normalizer.js
-        ├── models/
-        │   └── provider.model.js
-        ├── middlewares/
-        │   ├── apiKeyAuth.js
-        │   └── rateLimiter.js
-        ├── utils/
-        │   ├── sandbox.js
-        │   └── spawnHelper.js
-        └── config/
-            └── gateway.config.js
-
-Dockerfile.gateway
-docker-compose.gateway.yml
+/
+├── backend/                 # Node.js/Express API server
+│   ├── src/
+│   │   ├── gateway/        # Gateway-specific modules
+│   │   │   ├── api/        # Route definitions
+│   │   │   ├── controllers/# Request handlers
+│   │   │   ├── services/   # Business logic
+│   │   │   ├── adapters/   # Provider adapters
+│   │   │   ├── models/     # Mongoose schemas
+│   │   │   └── utils/      # Utilities
+│   │   ├── config/         # Configuration files
+│   │   ├── middlewares/    # Express middleware
+│   │   └── validations/    # Joi validation schemas
+│   ├── tests/              # Test suites
+│   ├── docker-compose.yml  # Container orchestration
+│   └── package.json
+├── frontend/               # React/TypeScript client
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Route-level components
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── lib/            # Utility libraries
+│   │   └── constants/      # Application constants
+│   ├── vite.config.ts      # Vite configuration
+│   └── package.json
+├── plans/                  # Project planning docs
+├── md-docs/               # Additional documentation
+└── README.md              # This file
 ```
 
-> NOTE: If you prefer to run the gateway inside your existing backend process, `gatewayApp.js` is an Express app factory you can `app.use('/gateway', gatewayApp)` from `backend/src/app.js`. Otherwise run it standalone using `index.js` and its own Docker image.
+## Quick Start
 
----
+### Prerequisites
 
-# Quick start (dev)
+- Node.js (>=12.0.0)
+- MongoDB (local or remote)
+- Docker (optional, for containerized deployment)
 
-> These commands assume Node.js is installed and you are in the project root and have MongoDB available (or point `MONGO_URI` to a running instance).
-
-1. Copy the gateway folder into your backend:
+### Backend Development
 
 ```bash
-# from repo root
-mkdir -p backend/src/gateway
-# add files per layout above (or copy generated PoC)
-```
-
-2. Install dependencies (in `backend/`):
-
-```bash
+# Navigate to backend directory
 cd backend
+
+# Install dependencies
 npm install
-# if using axios, mongoose, express, dotenv, winston, etc.
+
+# Copy environment configuration
+cp .env.example .env
+
+# Start development server
+npm run dev
+
+# Or start gateway in standalone mode
+npm run gateway:standalone
 ```
 
-3. Create `.env.gateway` (or set envs) — see [Environment variables](#environment-variables) below.
-
-4. Start the gateway (dev):
+### Frontend Development
 
 ```bash
-# run with node (or nodemon)
-node src/gateway/index.js
-# or npm run gateway:dev  (if you add script)
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server (runs on port 8080)
+npm run dev
+
+# Build for production
+npm run build
 ```
 
-5. Test the echo PoC (if you added an echo adapter):
+### Testing
 
 ```bash
-curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer <GATEWAY_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "cli-echo",
-    "messages": [{"role":"user","content":"hello gateway"}]
-  }'
+# Backend tests
+cd backend
+npm test                    # Run all tests
+npm run test:watch         # Watch mode
+npm run test:integration   # Gateway integration tests
+npm run coverage           # Test coverage
+
+# Frontend tests
+cd frontend
+npm run test               # Run unit tests
+npm run test:e2e          # End-to-end tests
+npm run test:all          # All test suites
 ```
 
-You should receive an OpenAI-shaped response JSON containing the assistant content returned by the adapter.
+## Environment Variables
 
----
+### Backend Configuration
 
-# Environment variables
+Create `.env` in the backend directory:
 
-Create `.env.gateway` (or set these in your environment / Docker Compose):
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=development
 
-```
+# Database
+MONGO_URI=mongodb://localhost:27017/dyad-gateway
+
+# Gateway Configuration
 GATEWAY_PORT=8080
-MONGO_URI=mongodb://mongo:27017/yourdb
-GATEWAY_MASTER_API_KEY=changeme_supersecret_key
-GATEWAY_ADMIN_API_KEY=changeme_admin_key   # optional for admin UI/API calls
-GATEWAY_JWT_SECRET=your_jwt_secret         # if reusing JWT from main backend
+GATEWAY_MASTER_API_KEY=your_secure_master_key
+GATEWAY_ADMIN_API_KEY=your_secure_admin_key
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret
+JWT_ACCESS_EXPIRATION_MINUTES=30
+JWT_REFRESH_EXPIRATION_DAYS=30
+
+# Security
+BCRYPT_SALT_ROUNDS=8
+
+# Logging
 LOG_LEVEL=info
-DOCKER_SOCKET=/var/run/docker.sock         # only if you use Docker sandbox runner
+
+# Docker (for sandboxed execution)
+DOCKER_SOCKET=/var/run/docker.sock
 ```
 
-* `GATEWAY_MASTER_API_KEY` is used to authorize clients (Dyad) calling `/v1/*`. Keep it secret.
-* Admin endpoints should be protected by your existing user auth + role checks; `GATEWAY_ADMIN_API_KEY` can be optional for internal automation.
+### Frontend Configuration
 
----
+Frontend uses Vite's environment variables with `VITE_` prefix:
 
-# Running via Docker / docker-compose
-
-Example `Dockerfile.gateway` (simple):
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY . .
-ENV NODE_ENV=production
-EXPOSE 8080
-CMD ["node", "src/gateway/index.js"]
+```env
+VITE_API_BASE_URL=http://localhost:3000
+VITE_GATEWAY_BASE_URL=http://localhost:8080
 ```
 
-Example `docker-compose.gateway.yml` snippet:
+## Docker Deployment
 
-```yaml
-version: "3.8"
-services:
-  mongo:
-    image: mongo:6
-    restart: unless-stopped
-    volumes:
-      - mongo-data:/data/db
-  gateway:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.gateway
-    ports:
-      - "8080:8080"
-    environment:
-      - MONGO_URI=mongodb://mongo:27017/yourdb
-      - GATEWAY_MASTER_API_KEY=${GATEWAY_MASTER_API_KEY}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # only if sandbox uses host docker
-    depends_on:
-      - mongo
-volumes:
-  mongo-data:
+### Development
+
+```bash
+# Start all services
+docker-compose -f docker-compose.dev.yml up
+
+# Start gateway only
+npm run gateway:docker
 ```
 
-> Security note: mounting the Docker socket into a container is powerful and potentially dangerous — only do this in controlled environments, or prefer alternative sandboxing (Kubernetes pod exec, Firecracker, gVisor) for production.
+### Production
 
----
+```bash
+# Build and start production containers
+docker-compose -f docker-compose.prod.yml up --build
 
-# API reference (OpenAI-compatible + admin)
+# Or use the production script
+npm run docker:prod
+```
 
-## OpenAI-compatible endpoints (public-facing for Dyad)
+### Gateway-Specific Deployment
 
-### `POST /v1/chat/completions`
+```bash
+# Gateway with MongoDB
+docker-compose -f docker-compose.gateway.yml up
 
-**Auth:** `Authorization: Bearer <GATEWAY_MASTER_API_KEY>`
-**Body (OpenAI chat schema):**
+# Build and start
+npm run gateway:docker:build
+```
 
+## API Reference
+
+### OpenAI-Compatible Endpoints
+
+#### POST `/v1/chat/completions`
+
+**Authentication**: `Authorization: Bearer <GATEWAY_MASTER_API_KEY>`
+
+**Request Body**:
 ```json
 {
   "model": "gemini-2.5-pro",
   "messages": [
-    {"role":"system","content":"You are a helpful assistant."},
-    {"role":"user","content":"Write a short haiku"}
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Write a short haiku"}
   ],
-  "max_tokens": 256
+  "max_tokens": 256,
+  "temperature": 0.7
 }
 ```
 
-**Response:** OpenAI-shaped `chat.completion` JSON (id, object, created, model, choices[], usage).
+**Response**: OpenAI-compatible chat completion response
 
-### `GET /v1/models`
+#### GET `/v1/models`
 
-Returns a list of available models aggregated from configured providers:
+Returns available models from all configured providers:
 
 ```json
 {
   "object": "list",
   "data": [
-    { "id": "gemini-2.5-pro", "object": "model", "owned_by": "gemini-cli-local", "max_tokens": 4096 }
+    {
+      "id": "gemini-2.5-pro",
+      "object": "model",
+      "owned_by": "gemini-cli-local",
+      "max_tokens": 4096
+    }
   ]
 }
 ```
 
-### `POST /v1/embeddings` (optional)
+#### POST `/v1/embeddings`
 
-If provider supports embeddings, forwards accordingly.
+**Request Body**:
+```json
+{
+  "model": "text-embedding-ada-002",
+  "input": "The quick brown fox jumps over the lazy dog"
+}
+```
 
----
+### Admin API Endpoints
 
-## Admin endpoints (for frontend / operators)
+All admin endpoints require authentication and admin role.
 
-**All admin endpoints must be protected** — integrate with your existing auth & `roles.isAdmin` middleware.
+#### Provider Management
 
-### `POST /admin/providers`
+- `POST /admin/providers` - Create provider
+- `GET /admin/providers` - List providers
+- `GET /admin/providers/:id` - Get provider details
+- `PUT /admin/providers/:id` - Update provider
+- `DELETE /admin/providers/:id` - Delete provider
+- `POST /admin/providers/:id/test` - Test provider configuration
 
-Create a provider (body: provider JSON — see sample below). Returns created provider document.
+## Provider Configuration
 
-### `GET /admin/providers`
-
-List providers.
-
-### `GET /admin/providers/:id`
-
-Get detail of provider (including models and last test status).
-
-### `PUT /admin/providers/:id`
-
-Update provider.
-
-### `DELETE /admin/providers/:id`
-
-Delete provider.
-
-### `POST /admin/providers/:id/test`
-
-Run a test with the provider (example request body: `{"messages":[{"role":"user","content":"ping"}]}`) — returns test result, logs, and success/fail.
-
----
-
-# Provider config example
-
-Example provider document (JSON) you can POST to `/admin/providers`:
+### Example Provider Configuration
 
 ```json
 {
-  "name": "Gemini-CLI-Local",
+  "name": "Gemini CLI Local",
   "slug": "gemini-cli-local",
   "type": "spawn-cli",
-  "description": "Local Gemini CLI wrapper (sandboxed)",
+  "description": "Local Gemini CLI wrapper with Docker sandbox",
   "enabled": true,
   "models": [
     {
@@ -307,144 +329,303 @@ Example provider document (JSON) you can POST to `/admin/providers`:
     "args": ["--json", "--no-cache"],
     "dockerSandbox": true,
     "sandboxImage": "ghcr.io/yourorg/cli-runner:latest",
-    "timeoutSeconds": 60
+    "timeoutSeconds": 60,
+    "environment": {
+      "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+    }
   },
-  "credentials": {}
+  "credentials": {
+    "apiKey": "encrypted_api_key_value"
+  }
 }
 ```
 
-* `type` must be one of: `spawn-cli`, `http-sdk`, `proxy`, `local`.
-* `adapterConfig` shape depends on `type`. The frontend will show dynamic fields.
+### Adapter Types
 
----
-
-# Security & sandboxing notes
-
-**Do not run untrusted CLIs on the host without sandboxing.** Recommendations:
-
-* Prefer running `spawn-cli` adapters inside ephemeral Docker containers (`docker run --rm --cpus=0.5 --memory=512m`) with minimal images containing only the CLI binary. The gateway's `sandbox.js` helper can manage this.
-* Do not interpolate user input into shell commands — always pass prompt content into the process via stdin and use `spawn()` with argument arrays.
-* Store provider credentials encrypted (KMS, environment variables, or vault) in production. In dev, cleartext is acceptable but insecure.
-* Enforce per-key rate limits and per-call timeouts to avoid runaway usage.
-* Carefully check third-party proxy projects (Copilot/Gemini reverse proxies) for legality and TOS compliance before using them in production.
-
----
-
-# Testing
-
-The repo includes Jest test wiring. Add tests under:
-
-```
-backend/tests/gateway/unit/
-backend/tests/gateway/integration/
+#### spawn-cli
+Execute CLI tools in sandboxed environments:
+```json
+{
+  "type": "spawn-cli",
+  "adapterConfig": {
+    "command": "/path/to/cli",
+    "args": ["--json"],
+    "dockerSandbox": true,
+    "sandboxImage": "custom-cli-image:latest",
+    "timeoutSeconds": 30
+  }
+}
 ```
 
-Important tests to add:
+#### http-sdk
+Call HTTP APIs:
+```json
+{
+  "type": "http-sdk",
+  "adapterConfig": {
+    "baseUrl": "https://api.provider.com",
+    "headers": {
+      "Authorization": "Bearer ${API_KEY}"
+    },
+    "timeout": 30000
+  }
+}
+```
 
-* Unit: `spawn-cli.adapter` (mock `child_process.spawn`), `http-sdk.adapter` (mock HTTP), normalizer.
-* Integration: run the gateway app in test mode with MongoDB test DB, register a simple echo provider, hit `/v1/chat/completions` and assert OpenAI-shaped response.
+#### proxy
+Forward to OpenAI-compatible services:
+```json
+{
+  "type": "proxy",
+  "adapterConfig": {
+    "targetUrl": "https://api.openai.com",
+    "apiKey": "${OPENAI_API_KEY}"
+  }
+}
+```
 
-Example run (from `backend/`):
+#### local
+Connect to local model servers:
+```json
+{
+  "type": "local",
+  "adapterConfig": {
+    "baseUrl": "http://localhost:11434",
+    "modelPath": "/api/generate"
+  }
+}
+```
+
+## Security & Sandboxing
+
+### Security Best Practices
+
+- **API Key Management**: Store keys securely using environment variables or secret management systems
+- **Sandboxed Execution**: Always use Docker containers for CLI execution
+- **Rate Limiting**: Implement per-key and per-endpoint rate limits
+- **Input Validation**: Validate all inputs using Joi schemas
+- **CORS Configuration**: Properly configure CORS for frontend access
+
+### Docker Sandboxing
+
+For secure CLI execution:
 
 ```bash
-npm run test -- tests/gateway
+# Example sandboxed execution
+docker run --rm \
+  --cpus=0.5 \
+  --memory=512m \
+  --network=none \
+  --read-only \
+  --tmpfs /tmp \
+  custom-cli-image:latest \
+  /usr/local/bin/cli-tool --json
 ```
 
-(You may add `gateway:test` npm script that limits jest to gateway tests.)
+### Production Security
 
----
+- Use KMS or HashiCorp Vault for credential storage
+- Implement proper logging and monitoring
+- Regular security audits and dependency updates
+- Network isolation for sensitive operations
 
-# Integrating with Dyad (how to add as a Custom Provider)
+## Testing
 
-1. Ensure gateway is running and reachable from Dyad.
-2. In Dyad UI: `Settings` → `AI Providers` → `Add Custom Provider`.
+### Test Structure
 
-   * **ID:** `cli-gateway-local`
-   * **Display name:** `Dyad CLI Gateway (local)`
-   * **API base:** `http://<GATEWAY_HOST>:8080`
-   * **API key:** `<GATEWAY_MASTER_API_KEY>` (set above)
-3. Add a **Custom Model** in Dyad under that provider:
+```
+backend/tests/
+├── fixtures/              # Test data
+├── integration/           # API endpoint tests
+├── unit/                  # Unit tests
+├── gateway/              # Gateway-specific tests
+└── utils/                # Test utilities
 
-   * **Model ID:** `gemini-2.5-pro` (this must match the `dyadModelId` provided in a provider's `models` mapping)
-   * **Name:** `Gemini 2.5 Pro (CLI)`
-   * Set tokens/context per provider model mapping.
+frontend/src/
+├── __tests__/            # Component tests
+└── test/                 # Test utilities
+```
 
-Now, Dyad will call your gateway on `/v1/chat/completions` and the gateway will dispatch the request to the configured adapter.
-
----
-
-# Development & contribution
-
-If you want to add features or contribute:
-
-1. Fork the repo, create a feature branch `feat/gateway-<feature>`.
-2. Follow the existing code style and tests.
-3. Add unit tests for new adapters, and integration tests for end-to-end flows.
-4. Submit a PR with a detailed description and example provider config.
-
-Suggested tasks for first contributors:
-
-* Implement initial `spawn-cli` adapter with an `echo-cli` PoC.
-* Implement `provider.model.js` and admin CRUD endpoints + validation.
-* Add integration tests that run gateway + echo adapter + call `/v1/chat/completions`.
-
----
-
-# Roadmap / Next steps
-
-* Add streaming (SSE or WebSocket) support for token-by-token streaming to Dyad.
-* Add production-grade sandboxing (Kubernetes-based job runner or Firecracker microVMs).
-* Add UI pages in `frontend/` (admin CRUD, test runner, logs viewer).
-* Add adapters: Gemini via vendor API, Bedrock via access gateway, proxy adapters for community proxies if desired.
-* Add secure secrets management (KMS/Vault), and Prometheus metrics + Grafana dashboards.
-
----
-
-# Troubleshooting
-
-* **`401 Unauthorized`**: Ensure the `Authorization` header is `Bearer <GATEWAY_MASTER_API_KEY>`.
-* **`Command not found`** for `spawn-cli`: verify the container / host has the CLI binary mounted and `adapterConfig.command` points to the correct executable.
-* **Timeouts**: Check provider `adapterConfig.timeoutSeconds` and gateway timeouts; verify sandbox runner doesn't restrict runtime too aggressively.
-* **No models in Dyad**: Ensure you registered `models` mapping under the provider and that `/v1/models` lists them.
-
----
-
-# Example quick curl flows
-
-Create a provider (admin):
+### Running Tests
 
 ```bash
-curl -X POST http://localhost:8080/admin/providers \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ADMIN_JWT_OR_KEY>" \
-  -d '@provider-gemini-cli.json'
+# Backend
+npm test                   # All tests
+npm run test:unit         # Unit tests only
+npm run test:integration  # Integration tests
+npm run test:gateway      # Gateway tests
+npm run test:coverage     # Coverage report
+
+# Frontend
+npm run test              # Unit tests
+npm run test:e2e         # End-to-end tests
+npm run test:a11y        # Accessibility tests
 ```
 
-Test a provider:
+### Load Testing
 
 ```bash
-curl -X POST http://localhost:8080/admin/providers/<providerId>/test \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <ADMIN_JWT_OR_KEY>" \
-  -d '{ "messages": [{"role":"user","content":"ping"}]}'
+# Backend load tests
+npm run test:load         # All load tests
+npm run test:load:basic   # Basic endpoint tests
+npm run test:load:chat    # Chat completion tests
 ```
 
-Call from Dyad (or any OpenAI client) to the gateway:
+## Dyad Integration
+
+### Adding as Custom Provider
+
+1. Ensure the gateway is running and accessible
+2. In Dyad UI: `Settings` → `AI Providers` → `Add Custom Provider`
+3. Configure:
+   - **Provider ID**: `dyad-cli-gateway`
+   - **Display Name**: `Dyad CLI Gateway`
+   - **API Base URL**: `http://localhost:8080`
+   - **API Key**: Your `GATEWAY_MASTER_API_KEY`
+4. Add models that match your provider configurations
+
+### Example Integration
+
+```javascript
+// Dyad configuration
+const provider = {
+  id: 'dyad-cli-gateway',
+  name: 'Dyad CLI Gateway',
+  baseUrl: 'http://localhost:8080',
+  apiKey: process.env.GATEWAY_MASTER_API_KEY,
+  models: [
+    {
+      id: 'gemini-2.5-pro',
+      name: 'Gemini 2.5 Pro (CLI)',
+      maxTokens: 4096,
+      contextWindow: 8192
+    }
+  ]
+};
+```
+
+## Development
+
+### Code Style
+
+- **Backend**: ESLint with Airbnb configuration, Prettier formatting
+- **Frontend**: ESLint with React hooks, TypeScript strict mode
+- **Commits**: Conventional commit format
+- **Pre-commit**: Husky with lint-staged for quality checks
+
+### Development Scripts
 
 ```bash
-curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer <GATEWAY_MASTER_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemini-2.5-pro",
-    "messages": [{"role":"user","content":"Write a to-do list"}]
-  }'
+# Backend
+npm run dev              # Development server with nodemon
+npm run lint             # ESLint check
+npm run lint:fix         # Auto-fix ESLint issues
+npm run prettier:fix     # Format code with Prettier
+
+# Frontend
+npm run dev              # Vite development server
+npm run type-check       # TypeScript checking
+npm run format           # Prettier formatting
 ```
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feat/new-feature`
+3. Follow the existing code style and add tests
+4. Commit using conventional commits: `feat: add new adapter type`
+5. Submit a pull request with detailed description
+
+### Architecture Guidelines
+
+- **Backend**: Layered architecture (routes → controllers → services → models)
+- **Frontend**: Component-based architecture with custom hooks
+- **Testing**: Unit tests for business logic, integration tests for APIs
+- **Documentation**: JSDoc for functions, README for modules
+
+## Roadmap
+
+### Phase 1: Core Gateway (Current)
+- [x] OpenAI-compatible API endpoints
+- [x] Basic adapter system (spawn-cli, http-sdk, proxy, local)
+- [x] MongoDB provider registry
+- [x] Admin CRUD API
+- [x] Docker deployment
+
+### Phase 2: Enhanced Features
+- [ ] Streaming support (SSE/WebSocket)
+- [ ] Advanced sandboxing (Kubernetes jobs, Firecracker)
+- [ ] Metrics and monitoring (Prometheus/Grafana)
+- [ ] Enhanced security (KMS integration, Vault)
+
+### Phase 3: Frontend & UX
+- [ ] React admin interface
+- [ ] Provider configuration UI
+- [ ] Real-time testing and logs
+- [ ] Dashboard and analytics
+
+### Phase 4: Production Ready
+- [ ] High availability setup
+- [ ] Auto-scaling capabilities
+- [ ] Advanced logging and alerting
+- [ ] Performance optimizations
+
+## Troubleshooting
+
+### Common Issues
+
+**401 Unauthorized**
+- Verify `Authorization: Bearer <GATEWAY_MASTER_API_KEY>` header
+- Check API key configuration in environment variables
+
+**Command not found (spawn-cli)**
+- Ensure CLI binary is available in container/host
+- Verify `adapterConfig.command` path is correct
+- Check Docker image includes required tools
+
+**Timeouts**
+- Adjust `adapterConfig.timeoutSeconds` for providers
+- Check network connectivity to external services
+- Verify sandbox resource limits aren't too restrictive
+
+**No models available**
+- Ensure providers are enabled and configured
+- Check `/v1/models` endpoint response
+- Verify model mappings in provider configuration
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+LOG_LEVEL=debug npm run dev
+
+# Gateway-specific debugging
+DEBUG=gateway:* npm run gateway:dev
+```
+
+### Health Checks
+
+```bash
+# Check gateway health
+curl http://localhost:8080/health
+
+# Check available models
+curl -H "Authorization: Bearer <API_KEY>" \
+     http://localhost:8080/v1/models
+
+# Test provider
+curl -X POST http://localhost:8080/admin/providers/<id>/test \
+     -H "Authorization: Bearer <ADMIN_KEY>" \
+     -H "Content-Type: application/json" \
+     -d '{"messages":[{"role":"user","content":"test"}]}'
+```
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-# License
+**Built with ❤️ for the Dyad ecosystem**
 
-This module/code follows the main repository license. If you plan to publish this module separately, include a license (MIT / Apache-2.0). Check your main repo’s license to ensure compatibility.
-
----
+For questions, issues, or contributions, please visit our [GitHub repository](https://github.com/your-org/dyad-cli-gateway) or contact the development team.
