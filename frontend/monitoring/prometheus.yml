@@ -1,0 +1,34 @@
+# Prometheus configuration for frontend monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Frontend metrics (if nginx-prometheus-exporter is added)
+  - job_name: 'frontend-nginx'
+    static_configs:
+      - targets: ['frontend:9113']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Node exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Backend API metrics (if available)
+  - job_name: 'backend-api'
+    static_configs:
+      - targets: ['backend:3000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

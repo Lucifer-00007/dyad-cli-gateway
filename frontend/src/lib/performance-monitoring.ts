@@ -1,5 +1,7 @@
-import { getCLS, getFID, getFCP, getLCP, getTTFB, Metric } from 'web-vitals';
+import { onCLS, onINP, onFCP, onLCP, onTTFB, type Metric } from 'web-vitals';
 import { reportError } from './sentry';
+import React from 'react';
+import React from 'react';
 
 export interface PerformanceMetric {
   name: string;
@@ -43,11 +45,11 @@ class PerformanceMonitor {
 
   private initializeWebVitals(): void {
     // Collect Core Web Vitals
-    getCLS(this.handleMetric.bind(this));
-    getFID(this.handleMetric.bind(this));
-    getFCP(this.handleMetric.bind(this));
-    getLCP(this.handleMetric.bind(this));
-    getTTFB(this.handleMetric.bind(this));
+    onCLS(this.handleMetric.bind(this));
+    onINP(this.handleMetric.bind(this)); // INP replaced FID in web-vitals v4+
+    onFCP(this.handleMetric.bind(this));
+    onLCP(this.handleMetric.bind(this));
+    onTTFB(this.handleMetric.bind(this));
   }
 
   private initializeCustomMetrics(): void {

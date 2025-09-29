@@ -241,9 +241,9 @@ describe('Monitoring Integration', () => {
       const mockAppendChild = vi.fn();
       const mockRemoveChild = vi.fn();
 
-      document.createElement = mockCreateElement as any;
-      document.body.appendChild = mockAppendChild as any;
-      document.body.removeChild = mockRemoveChild as any;
+      document.createElement = mockCreateElement as typeof document.createElement;
+      document.body.appendChild = mockAppendChild as typeof document.body.appendChild;
+      document.body.removeChild = mockRemoveChild as typeof document.body.removeChild;
 
       renderWithProviders(<MonitoringDashboard />);
 

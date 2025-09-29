@@ -291,16 +291,41 @@ jobs:
         cd frontend
         npm run type-check
 
-    - name: Run frontend unit tests
+    - name: Run frontend unit tests with coverage
       run: |
         cd frontend
-        npm test -- --coverage --watchAll=false
+        npm run test:run -- --coverage
       if: hashFiles('frontend/src/**/*.test.*') != ''
 
-    - name: Build frontend
+    - name: Run accessibility tests
+      run: |
+        cd frontend
+        npm run test:a11y
+      if: hashFiles('frontend/src/test/accessibility.test.tsx') != ''
+
+    - name: Run performance tests
+      run: |
+        cd frontend
+        npm run test:performance
+      if: hashFiles('frontend/src/test/performance.test.tsx') != ''
+
+    - name: Build frontend for production
       run: |
         cd frontend
         npm run build
+
+    - name: Analyze bundle size
+      run: |
+        cd frontend
+        npm run build:analyze
+        ls -la dist/
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
 
     - name: Upload frontend build artifacts
       uses: actions/upload-artifact@v4
@@ -308,11 +333,78 @@ jobs:
         name: frontend-build
         path: frontend/dist/
 
+    - name: Upload bundle analysis
+      uses: actions/upload-artifact@v4
+      with:
+        name: bundle-analysis
+        path: frontend/dist/bundle-analysis.html
+
+  # Frontend E2E Testing
+  frontend-e2e:
+    name: Frontend E2E Tests
+    runs-on: ubuntu-latest
+    needs: [frontend-test]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18.x
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Install Playwright browsers
+      run: |
+        cd frontend
+        npx playwright install --with-deps
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Start frontend server
+      run: |
+        cd frontend
+        npm run preview &
+        sleep 10
+      env:
+        CI: true
+
+    - name: Run Playwright tests
+      run: |
+        cd frontend
+        npm run test:e2e
+      env:
+        CI: true
+
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: frontend/playwright-report/
+
+    - name: Upload E2E test videos
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-videos
+        path: frontend/test-results/
+
   # Container Build and Security Scanning
   docker-build:
     name: Container Build
     runs-on: ubuntu-latest
-    needs: [test, frontend-test, integration-tests]
+    needs: [test, frontend-test, frontend-e2e, integration-tests]
     permissions:
       contents: read
       packages: write
@@ -321,8 +413,10 @@ jobs:
     outputs:
       backend-image: ${{ steps.meta-backend.outputs.tags }}
       gateway-image: ${{ steps.meta-gateway.outputs.tags }}
+      frontend-image: ${{ steps.meta-frontend.outputs.tags }}
       backend-digest: ${{ steps.build-backend.outputs.digest }}
       gateway-digest: ${{ steps.build-gateway.outputs.digest }}
+      frontend-digest: ${{ steps.build-frontend.outputs.digest }}
 
     steps:
     - name: Checkout code
@@ -363,6 +457,18 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=sha,prefix={{branch}}-
 
+    - name: Extract metadata (frontend)
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
     - name: Build backend Docker image
       id: build-backend
       uses: docker/build-push-action@v5
@@ -389,6 +495,21 @@ jobs:
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64
 
+    - name: Build frontend Docker image
+      id: build-frontend
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+        build-args: |
+          NODE_ENV=production
+
   # Container Security Scanning
   container-security-scan:
     name: Container Security Scan
@@ -400,7 +521,7 @@ jobs:
 
     strategy:
       matrix:
-        image: [backend, gateway]
+        image: [backend, gateway, frontend]
 
     steps:
     - name: Checkout code
@@ -411,11 +532,12 @@ jobs:
 
     - name: Build image for scanning
       run: |
-        cd backend
         if [ "${{ matrix.image }}" = "backend" ]; then
-          docker build -t scan-target:latest .
+          cd backend && docker build -t scan-target:latest .
+        elif [ "${{ matrix.image }}" = "gateway" ]; then
+          cd backend && docker build -f Dockerfile.gateway -t scan-target:latest .
         else
-          docker build -f Dockerfile.gateway -t scan-target:latest .
+          cd frontend && docker build -t scan-target:latest .
         fi
 
     # Trivy vulnerability scanning

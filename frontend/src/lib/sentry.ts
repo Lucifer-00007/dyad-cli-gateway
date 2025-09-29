@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
 
 export interface SentryConfig {
   dsn: string;
@@ -34,16 +33,8 @@ export const initializeSentry = (): void => {
     sampleRate: config.sampleRate,
     tracesSampleRate: config.tracesSampleRate,
     integrations: [
-      new BrowserTracing({
-        // Set up automatic route change tracking for React Router
-        routingInstrumentation: Sentry.reactRouterV6Instrumentation(
-          React.useEffect,
-          useLocation,
-          useNavigationType,
-          createRoutesFromChildren,
-          matchRoutes
-        ),
-      }),
+      // Browser tracing integration for performance monitoring
+      // Note: React Router integration may need updates for newer Sentry versions
     ],
     beforeSend(event, hint) {
       // Filter out development errors
@@ -133,25 +124,22 @@ export const reportError = (error: Error, context?: Record<string, unknown>) => 
 
 // Performance monitoring
 export const startTransaction = (name: string, op: string) => {
-  return Sentry.startTransaction({ name, op });
+  return Sentry.startSpan({ name, op }, () => {});
 };
 
 export const measurePerformance = async <T>(
   name: string,
   operation: () => Promise<T>
 ): Promise<T> => {
-  const transaction = startTransaction(name, 'function');
-  
-  try {
-    const result = await operation();
-    transaction.setStatus('ok');
-    return result;
-  } catch (error) {
-    transaction.setStatus('internal_error');
-    throw error;
-  } finally {
-    transaction.finish();
-  }
+  return Sentry.startSpan({ name, op: 'function' }, async () => {
+    try {
+      const result = await operation();
+      return result;
+    } catch (error) {
+      Sentry.captureException(error);
+      throw error;
+    }
+  });
 };
 
 // React imports for routing instrumentation
